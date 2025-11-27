@@ -85,8 +85,6 @@ jobs:
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_deploy }}
     secrets: inherit
-    environment:
-      name: dev
 
   deploy-verification:
     needs: deploy-dev

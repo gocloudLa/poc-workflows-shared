@@ -98,8 +98,6 @@ jobs:
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_staging_deploy }}
     secrets: inherit
-    environment:
-      name: staging
 
   staging-verification:
     needs: deploy-staging
@@ -160,8 +158,6 @@ jobs:
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_prod_deploy }}
     secrets: inherit
-    environment:
-      name: prd
 
   production-verification:
     needs: deploy-production
