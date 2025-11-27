@@ -1,97 +1,132 @@
-# Centralized CI/CD Workflows
+# Sistema CI/CD Centralizado
 
-This repository contains reusable GitHub Actions workflows for standardizing the CI/CD pipeline across multiple services and programming languages in a large enterprise environment.
+Sistema de workflows de CI/CD centralizados y reutilizables para estandarizar pipelines en múltiples servicios y lenguajes de programación (PHP, Python, JavaScript/Node.js, Go) en un entorno enterprise con compliance PCI e ISO27001.
 
-## Overview
+## Características Principales
 
-This centralized workflow system provides:
+- ✅ **Pipelines estandarizados** para todos los servicios
+- ✅ **Soporte multi-lenguaje**: PHP, Python, JavaScript, Go
+- ✅ **Compliance PCI/ISO27001**: Security scans, aprobaciones manuales, auditoría
+- ✅ **Mecanismos de bypass**: Permite a equipos saltar o extender workflows
+- ✅ **Versionado automático**: Release-please con semantic versioning
+- ✅ **Rollback mechanisms**: Documentados y simulados
 
-- **Standardized pipelines** for all services regardless of programming language
-- **Multi-language support**: PHP, Python, JavaScript (Node.js), and Go
-- **PCI/ISO27001 compliance** with security checks and approval workflows
-- **Flexible bypass mechanisms** for teams to skip or extend workflows
-- **Observability integration** with Datadog
-- **Automated versioning and releases**
+## Arquitectura
 
-## Repository Structure
+### Estructura de Workflows
 
 ```
-.github/
-  workflows/
-    # Main orchestrator workflows
-    shared-pull-request-events.yml
-    shared-develop-push-events.yml
-    shared-main-push-events.yml
-    
-    # Individual job workflows
-    conventional-commit-check.yml
-    linter-php.yml
-    linter-python.yml
-    linter-javascript.yml
-    linter-go.yml
-    security-scan.yml
-    unit-tests.yml
-    coverage-validation.yml
-    build-and-push.yml
-    deploy-dev.yml
-    deploy-staging.yml
-    deploy-production.yml
-    deploy-verification.yml
-    health-check.yml
-    staging-validation.yml
-    rollback-mechanism.yml
-    release-and-changelog.yml
+.github/workflows/
+  # Workflows Orquestadores
+  shared-pull-request-events.yml      # Validaciones en PRs
+  shared-develop-push-events.yml      # Deploy a dev
+  shared-main-push-events.yml         # Release y deploy a staging/prod
+  
+  # Workflows de Jobs Individuales
+  conventional-commit-check.yml       # Validación de conventional commits
+  linter-php.yml, linter-python.yml, linter-javascript.yml, linter-go.yml
+  security-scan.yml                   # CodeQL, Dependabot, Trivy
+  unit-tests.yml                      # Tests unitarios multi-lenguaje
+  coverage-validation.yml             # Validación de cobertura
+  build-and-push.yml                  # Build Docker y push a ECR
+  deploy-dev.yml, deploy-staging.yml, deploy-production.yml
+  release-and-changelog.yml           # Release y changelog con release-please
 ```
 
-## Workflow Flows
+### Flujo Completo
 
-### Feature Branch → Pull Request to `develop`
+```
+Feature Branch
+    │
+    ├─→ PR a develop ──→ [Validaciones] ──→ ✅ Merge
+    │                                           │
+    │                                           ▼
+    │                                    develop (push)
+    │                                           │
+    │                                           ├─→ Security Scan
+    │                                           ├─→ Build & Tag (SHA, develop-latest)
+    │                                           ├─→ Deploy Dev
+    │                                           └─→ Health Check
+    │
+    └─→ PR a main (desde develop) ──→ [Validaciones] ──→ ✅ Merge
+                                                              │
+                                                              ▼
+                                                         main (push)
+                                                              │
+                                                              ├─→ Release & Tag (v1.2.3)
+                                                              ├─→ Build & Tag (v1.2.3, v1.2.3-stg, v1.2.3-prd)
+                                                              ├─→ Deploy Staging (v1.2.3-stg)
+                                                              ├─→ Staging Validation
+                                                              ├─→ ⚠️ Manual Approval
+                                                              └─→ Deploy Production (v1.2.3-prd)
+```
 
-When a PR is opened against the `develop` branch, the following validations run:
+## Configuración Inicial
 
-1. **Conventional Commit Check**: Validates PR title follows conventional commit format
-2. **Linter**: Runs language-specific linter (auto-detected or specified)
-3. **Security Scan**: CodeQL analysis, dependency review, and container scanning
-4. **Unit Tests**: Executes unit tests for the detected language
-5. **Coverage Validation**: Ensures test coverage meets threshold (default: 80%)
+### 1. GitHub Secrets
 
-### `develop` Branch (Push)
+En cada repositorio de servicio, configurar:
 
-When code is merged to `develop`, the following pipeline runs:
+- `ECR_REPOSITORY_URL`: URL del repositorio ECR
+- `AWS_ROLE_ARN_SHARED`: ARN del rol IAM para acceso a ECR
+- `AWS_ROLE_ARN_DEV`: ARN del rol IAM para deploy a dev
+- `AWS_ROLE_ARN_STAGING`: ARN del rol IAM para deploy a staging
+- `AWS_ROLE_ARN_PROD`: ARN del rol IAM para deploy a producción
+- `AWS_REGION`: Región de AWS (ej: `us-east-2`)
 
-1. **Security Scan**: Additional security checks
-2. **Build & Tag**: Builds Docker image and pushes to ECR with tags:
-   - `{commit-sha-short}` (e.g., `a1b2c3d`)
-   - `develop-latest`
-3. **Deploy to Dev**: Deploys to development environment
-4. **Deploy Verification**: Verifies deployment status
-5. **Health Check**: Waits 3 minutes and performs health check
+### 2. GitHub Environments
 
-### `main` Branch (Push)
+**dev Environment**: Sin protection rules (deploy automático)
 
-When code is merged to `main`, the following pipeline runs:
+**staging Environment**: Sin protection rules (deploy automático)
 
-1. **Release & Changelog**: Generates release PR with changelog (using release-please)
-2. **Build & Tag**: Builds Docker image and pushes to ECR with tags:
-   - `{version}` (e.g., `v1.2.3`)
-   - `{version}-stg`
-   - `{version}-prd`
-3. **Deploy to Staging**: Deploys to staging environment
-4. **Staging Verification**: Verifies deployment status
-5. **Staging Health Check**: Performs health check
-6. **Staging Validation**: Validates error rate, latency, and APM metrics (Datadog)
-7. **Rollback Mechanism**: Documents rollback capability (if validation fails)
-8. **Manual Approval**: Requires approval for production deployment (PCI compliance)
-9. **Deploy to Production**: Deploys to production environment
-10. **Production Verification**: Verifies deployment status
-11. **Production Health Check**: Performs health check
-12. **Rollback Mechanism**: Documents rollback capability (if health check fails)
+**prd Environment**:
+- **Required reviewers**: Agregar equipo de seguridad/desarrollo
+- **Deployment branches**: Solo `main`
 
-## Usage
+### 3. Branch Protection Rules
 
-### In Your Service Repository
+**develop Branch**:
+- Require pull request reviews: 1 reviewer
+- Require status checks: `pull-request-events / workflow-summary`
+- Require branches to be up to date: Yes
 
-Create three workflow files in `.github/workflows/`:
+**main Branch**:
+- Require pull request reviews: 2 reviewers
+- Require status checks: `pull-request-events / workflow-summary`
+- Require branches to be up to date: Yes
+- Require linear history: Yes
+
+### 4. AWS IAM Trust Policy
+
+Cada rol IAM debe tener un trust policy que permita a GitHub Actions asumirlo:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+      },
+      "StringLike": {
+        "token.actions.githubusercontent.com:sub": "repo:ORG/REPO:*"
+      }
+    }
+  }]
+}
+```
+
+## Uso
+
+### Crear Workflows en Repositorio de Servicio
+
+Crear tres archivos en `.github/workflows/`:
 
 #### `pull-request-events.yml`
 
@@ -100,7 +135,7 @@ name: "Pull Request Events Workflow"
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
     types: [opened, edited, reopened, synchronize, ready_for_review]
 
 permissions:
@@ -112,7 +147,7 @@ jobs:
   pull-request-events:
     uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-pull-request-events.yml@main
     with:
-      language: php  # or python, javascript, go
+      language: php  # o python, javascript, go
     secrets: inherit
 ```
 
@@ -169,78 +204,53 @@ jobs:
     secrets: inherit
 ```
 
-## Configuration
+## Flujos de Trabajo
 
-### Required Repository Secrets
+### Feature Branch → PR a `develop`
 
-Configure these secrets in your service repository:
+**Validaciones**:
+1. Conventional Commit Check
+2. Linter (específico del lenguaje)
+3. Security Scan (CodeQL, Dependabot, Trivy)
+4. Unit Tests
+5. Coverage Validation (>= 80%)
 
-- `ECR_REPOSITORY_URL`: ECR repository URL (e.g., `123456789012.dkr.ecr.us-east-1.amazonaws.com/my-service`)
-- `AWS_ROLE_ARN_SHARED`: IAM role ARN for ECR access
-- `AWS_ROLE_ARN_DEV`: IAM role ARN for dev environment deployments
-- `AWS_ROLE_ARN_STAGING`: IAM role ARN for staging environment deployments
-- `AWS_ROLE_ARN_PROD`: IAM role ARN for production environment deployments
-- `AWS_REGION`: AWS region (optional, defaults to `us-east-1`)
+**Status Check**: `pull-request-events / workflow-summary`
 
-### GitHub Environments
+### `develop` (Push después del merge)
 
-Configure the following environments in your repository (Settings → Environments):
+**Proceso**:
+1. Security Scan
+2. Build & Tag: `{commit-sha-short}`, `develop-latest`
+3. Deploy to Dev
+4. Health Check
 
-#### `dev` Environment
-- **Protection rules**: None (automatic deployment)
-- **Secrets**: Optional environment-specific secrets
+### `develop` → PR a `main`
 
-#### `staging` Environment
-- **Protection rules**: None (automatic deployment)
-- **Secrets**: Optional environment-specific secrets
+Mismas validaciones que PRs a develop.
 
-#### `prd` Environment
-- **Protection rules**:
-  - **Required reviewers**: Add security team or development team (based on PCI/non-PCI)
-  - **Deployment branches**: Only `main`
-- **Secrets**: Environment-specific secrets for production
+### `main` (Push después del merge)
 
-### AWS IAM Trust Policy
-
-Each IAM role must have a trust policy allowing GitHub Actions OIDC:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": {
-      "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-    },
-    "Action": "sts:AssumeRoleWithWebIdentity",
-    "Condition": {
-      "StringEquals": {
-        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-      },
-      "StringLike": {
-        "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
-      }
-    }
-  }]
-}
-```
+**Proceso**:
+1. **Release & Tag**: Release-please crea tag semántico (v1.2.3) y changelog
+2. **Build & Tag**: `{version}`, `{version}-stg`, `{version}-prd`
+3. **Deploy to Staging**: Usando tag `{version}-stg`
+4. **Staging Validation**: Valida métricas (error rate, latency, APM)
+5. **Manual Approval**: Requerido para producción (PCI compliance)
+6. **Deploy to Production**: Usando tag `{version}-prd` (solo si se aprueba)
 
 ## Bypassing Jobs
 
-All workflows support `skip_*` flags to bypass specific jobs:
+Todos los workflows soportan flags `skip_*` para saltar jobs específicos:
 
 ```yaml
-jobs:
-  pull-request-events:
-    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-pull-request-events.yml@main
-    with:
-      language: php
-      skip_linter: true
-      skip_coverage_validation: true
-    secrets: inherit
+with:
+  language: php
+  skip_linter: true
+  skip_coverage_validation: true
 ```
 
-Available skip flags:
+**Flags disponibles**:
 - `skip_conventional_commit`
 - `skip_linter`
 - `skip_security_scan`
@@ -248,175 +258,143 @@ Available skip flags:
 - `skip_coverage_validation`
 - `skip_build`
 - `skip_deploy`
-- `skip_deploy_verification`
-- `skip_health_check`
-- `skip_staging_validation`
 - `skip_release`
 
-## Language Detection
+**⚠️ Advertencia**: Los bypasses deben ser justificados y documentados para auditoría.
 
-The workflows automatically detect the programming language by checking for:
-- **PHP**: `composer.json`
-- **JavaScript**: `package.json`
-- **Python**: `requirements.txt`, `setup.py`, or `pyproject.toml`
-- **Go**: `go.mod`
+## Procesos Operativos
 
-You can also explicitly specify the language:
+### Revert en develop
 
-```yaml
-with:
-  language: php  # Overrides auto-detection
+Si necesitas deshacer un PR mergeado en `develop`:
+
+```bash
+git revert <commit-sha>
+git push origin feature/revert-commit
 ```
 
-## Customization
+Crear PR con el revert. Pasará por las mismas validaciones y al mergear se deployará la versión revertida a dev.
 
-### Extending Workflows
+### Rollback desde Staging/Production
 
-You can add additional jobs to your workflow files:
+1. Identificar la versión anterior estable
+2. Usar el mecanismo de rollback del workflow
+3. O crear hotfix desde `main`
 
-```yaml
-jobs:
-  pull-request-events:
-    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-pull-request-events.yml@main
-    with:
-      language: php
-    secrets: inherit
+### Hotfix
 
-  custom-job:
-    needs: pull-request-events
-    runs-on: ubuntu-latest
-    steps:
-      - name: Custom Step
-        run: echo "Custom job"
-```
+Para fixes críticos que necesitan ir directo a producción:
 
-### Overriding Defaults
+1. Crear branch desde `main`:
+   ```bash
+   git checkout main
+   git checkout -b hotfix/fix-critico
+   ```
 
-You can override default values:
+2. Hacer el fix y commit con conventional commit:
+   ```bash
+   git commit -m "fix: corregir bug crítico en producción"
+   ```
 
-```yaml
-with:
-  coverage_threshold: 90  # Default is 80
-  conventional_commit_types: 'fix feat chore docs'  # Custom types
-  require_scope: true  # Require scope in commits
-```
-
-## Observability Integration
-
-### Datadog
-
-The workflows include Datadog integration points:
-
-- **Deployment Events**: Logged when deployments occur
-- **Health Checks**: Results logged to Datadog
-- **Staging Validation**: Queries Datadog for error rate, latency, and APM metrics
-
-To enable Datadog integration, configure the Datadog API key in your repository secrets and update the workflow steps to use the Datadog API.
-
-## Security Features
-
-### GitHub Advanced Security
-
-- **CodeQL**: Static analysis for JavaScript, Python, and Go
-- **Dependency Review**: Scans dependencies for vulnerabilities
-- **Container Scanning**: Trivy scans Docker images for vulnerabilities
-
-### PCI Compliance
-
-- **Manual Approval**: Production deployments require manual approval
-- **Audit Logging**: All deployments are logged
-- **Secrets Management**: Uses GitHub Secrets and Environments
-- **OIDC Authentication**: No static credentials stored
-
-## Versioning
-
-The system uses semantic versioning:
-
-- **develop branch**: Tags with `{commit-sha-short}` and `develop-latest`
-- **main branch**: Tags with `{version}`, `{version}-stg`, and `{version}-prd`
-
-Releases are managed by `release-please`, which:
-1. Analyzes commits for conventional commit messages
-2. Generates a release PR with changelog
-3. Creates a GitHub release when the PR is merged
-
-## Rollback Mechanism
-
-The rollback mechanism is documented but simulated. In a real scenario, it would:
-
-- **ArgoCD**: `argocd app rollback <app-name> <revision>`
-- **Argo Rollouts**: `kubectl argo rollouts undo <rollout-name>`
-- **ECS**: Revert to previous task definition revision
-- **Lambda**: Update to previous version/alias
-
-## Branch Protection Rules
-
-Configure branch protection rules in GitHub (Settings → Branches):
-
-### `develop` Branch
-- Require pull request reviews
-- Require status checks to pass
-- Require branches to be up to date
-- Allow specified actors to bypass (team leaders)
-
-### `main` Branch
-- Require pull request reviews
-- Require status checks to pass
-- Require branches to be up to date
-- Require linear history
-- Allow specified actors to bypass (team leaders)
-
-## Example Repositories
-
-See the example repositories for complete implementations:
-
-- [PHP Example](../poc-workflows-php-repo)
-- [Node.js Example](../poc-workflows-node-repo)
-- [Python Example](../poc-workflows-python-repo)
-- [Go Example](../poc-workflows-go-repo)
+3. Crear PR contra `main`
+4. Merge a `main` → Release automático → Deploy a staging → Aprobación → Deploy a prod
+5. Merge el hotfix también a `develop` para mantener sincronización
 
 ## Troubleshooting
 
-### Workflow Fails on Language Detection
+### Workflow Falla en Language Detection
 
-If language detection fails, explicitly specify the language:
-
-```yaml
-with:
-  language: php  # Explicitly set language
-```
-
-### Build Fails
-
-Ensure your `Dockerfile` is in the repository root and is valid.
-
-### Deployment Fails
-
-Check:
-1. AWS IAM roles are correctly configured
-2. OIDC trust policy is set up correctly
-3. GitHub environment secrets are configured
-4. ECR repository exists and is accessible
-
-### Security Scan Fails
-
-Security scans may find issues. Review the GitHub Security tab for details. To bypass (not recommended):
+**Solución**: Especificar el lenguaje explícitamente:
 
 ```yaml
 with:
-  skip_security_scan: true
+  language: php
 ```
 
-## Contributing
+### Build Falla por Dockerfile No Encontrado
 
-When adding new workflows or modifying existing ones:
+**Solución**: Asegurar que el Dockerfile esté en la raíz del repositorio.
 
-1. Ensure all workflows have `skip_execution` support
-2. Add proper error handling and logging
-3. Update this README with new features
-4. Test with example repositories
+### Security Scan Encuentra Vulnerabilidades
 
-## License
+**Solución**: 
+1. Revisar el GitHub Security tab
+2. Actualizar dependencias vulnerables
+3. Si es un falso positivo, documentar y considerar bypass temporal
 
-[Add your license here]
+### Coverage Validation Falla
 
+**Solución**:
+1. Aumentar cobertura de tests
+2. O ajustar threshold temporalmente (no recomendado):
+   ```yaml
+   with:
+     coverage_threshold: 70
+   ```
+
+### Release-Please No Crea Release
+
+**Solución**:
+- Verificar que los commits usen conventional commits
+- Verificar que release-please tenga permisos de `contents: write`
+- Revisar logs del workflow para errores
+
+## Best Practices
+
+### Conventional Commits
+
+Siempre usar conventional commits:
+- `feat:` Nueva funcionalidad
+- `fix:` Corrección de bug
+- `docs:` Cambios en documentación
+- `chore:` Cambios en build, dependencias, etc.
+
+### Versionado
+
+- **Patch** (1.2.3 → 1.2.4): Fixes, patches
+- **Minor** (1.2.3 → 1.3.0): Nuevas features (backward compatible)
+- **Major** (1.2.3 → 2.0.0): Breaking changes
+
+Release-please determina automáticamente el tipo de versión basado en conventional commits.
+
+### Seguridad
+
+- ✅ Nunca commitear secrets
+- ✅ Usar GitHub Secrets/Environments
+- ✅ Rotar secrets regularmente
+- ✅ Revisar security scans regularmente
+- ✅ Mantener dependencias actualizadas
+
+### Testing
+
+- ✅ Escribir tests para todo código nuevo
+- ✅ Mantener cobertura >= 80%
+- ✅ Tests deben ser rápidos y determinísticos
+
+### Deployment
+
+- ✅ Validar en staging antes de producción
+- ✅ Monitorear métricas post-deploy
+- ✅ Tener plan de rollback listo
+- ✅ Documentar deployments importantes
+
+## Referencias
+
+### Documentación Oficial
+
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [Reusable Workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows)
+- [AWS OIDC](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
+- [Release-Please](https://github.com/google-github-actions/release-please-action)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Semantic Versioning](https://semver.org/)
+
+### Herramientas
+
+- [CodeQL](https://codeql.github.com/docs/)
+- [Dependabot](https://docs.github.com/en/code-security/dependabot)
+- [Trivy](https://aquasecurity.github.io/trivy/)
+
+---
+
+**Última actualización**: 2024
