@@ -141,8 +141,10 @@ jobs:
     secrets: inherit
 
   security-scan:
+    needs: determine-language
     uses: ./.github/workflows/security-scan.yml
     with:
+      language: ${{ needs.determine-language.outputs.language }}
       skip_execution: ${{ inputs.skip_security_scan }}
     secrets: inherit
 

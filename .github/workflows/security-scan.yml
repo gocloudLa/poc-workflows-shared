@@ -3,24 +3,25 @@ name: Security Scan
 on:
   workflow_call:
     inputs:
+      language:
+        description: 'Programming language to scan'
+        required: false
+        type: string
+        default: ''
       skip_execution:
         required: false
         type: boolean
         default: false
 
 jobs:
-  codeql-analysis:
-    name: CodeQL Analysis
-    if: ${{ !inputs.skip_execution }}
+  codeql-analysis-javascript:
+    name: CodeQL Analysis (javascript)
+    if: ${{ !inputs.skip_execution && inputs.language == 'javascript' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
       security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ['javascript', 'python', 'go']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,7 +29,53 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  codeql-analysis-python:
+    name: CodeQL Analysis (python)
+    if: ${{ !inputs.skip_execution && inputs.language == 'python' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  codeql-analysis-go:
+    name: CodeQL Analysis (go)
+    if: ${{ !inputs.skip_execution && inputs.language == 'go' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
