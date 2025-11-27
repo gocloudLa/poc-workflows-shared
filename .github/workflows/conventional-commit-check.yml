@@ -6,7 +6,11 @@ on:
       types:
         description: 'Allowed PR types'
         required: false
-        default: 'fix feat ci chore'
+        default: |
+          fix
+          feat
+          ci
+          chore
         type: string
       requireScope:
         description: 'Whether to require a scope'

@@ -37,7 +37,11 @@ on:
         description: 'Allowed PR types for conventional commits'
         required: false
         type: string
-        default: 'fix feat ci chore'
+        default: |
+          fix
+          feat
+          ci
+          chore
       require_scope:
         description: 'Whether to require a scope in conventional commits'
         required: false
