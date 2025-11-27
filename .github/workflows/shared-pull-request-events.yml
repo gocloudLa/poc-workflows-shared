@@ -97,15 +97,39 @@ jobs:
     outputs:
       language: ${{ steps.determine.outputs.language }}
     steps:
+      - uses: actions/checkout@v4
+      
       - name: Determine Language
         id: determine
         run: |
-          if [ "${{ inputs.language }}" != "" ]; then
+          # Check if language was explicitly provided
+          if [ -n "${{ inputs.language }}" ]; then
             echo "language=${{ inputs.language }}" >> $GITHUB_OUTPUT
+            echo "✅ Using explicitly provided language: ${{ inputs.language }}"
+          # Check if detect-language job succeeded and has output
           elif [ "${{ needs.detect-language.result }}" == "success" ]; then
-            echo "language=${{ needs.detect-language.outputs.language }}" >> $GITHUB_OUTPUT
+            detected_lang="${{ needs.detect-language.outputs.language }}"
+            if [ -n "$detected_lang" ] && [ "$detected_lang" != "unknown" ]; then
+              echo "language=$detected_lang" >> $GITHUB_OUTPUT
+              echo "✅ Using auto-detected language: $detected_lang"
+            else
+              echo "language=unknown" >> $GITHUB_OUTPUT
+              echo "⚠️ Detected language is unknown or empty"
+            fi
           else
-            echo "language=unknown" >> $GITHUB_OUTPUT
+            # detect-language was skipped, try to detect manually
+            echo "⚠️ detect-language was skipped, attempting manual detection..."
+            if [ -f "composer.json" ]; then
+              echo "language=php" >> $GITHUB_OUTPUT
+            elif [ -f "package.json" ]; then
+              echo "language=javascript" >> $GITHUB_OUTPUT
+            elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+              echo "language=python" >> $GITHUB_OUTPUT
+            elif [ -f "go.mod" ]; then
+              echo "language=go" >> $GITHUB_OUTPUT
+            else
+              echo "language=unknown" >> $GITHUB_OUTPUT
+            fi
           fi
 
   linter-php:
