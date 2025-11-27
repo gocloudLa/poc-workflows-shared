@@ -3,12 +3,11 @@ name: "Shared Pull Request Events"
 on:
   workflow_call:
     inputs:
-      # Language detection
+      # Language
       language:
-        description: 'Programming language (php, python, javascript, go). Auto-detected if not provided'
-        required: false
+        description: 'Programming language (php, python, javascript, go)'
+        required: true
         type: string
-        default: ''
       
       # Skip flags
       skip_conventional_commit:
@@ -68,125 +67,57 @@ jobs:
       skip_execution: ${{ inputs.skip_conventional_commit }}
     secrets: inherit
 
-  detect-language:
-    if: ${{ inputs.language == '' }}
-    runs-on: ubuntu-latest
-    outputs:
-      language: ${{ steps.detect.outputs.language }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Detect Language
-        id: detect
-        run: |
-          if [ -f "composer.json" ]; then
-            echo "language=php" >> $GITHUB_OUTPUT
-          elif [ -f "package.json" ]; then
-            echo "language=javascript" >> $GITHUB_OUTPUT
-          elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
-            echo "language=python" >> $GITHUB_OUTPUT
-          elif [ -f "go.mod" ]; then
-            echo "language=go" >> $GITHUB_OUTPUT
-          else
-            echo "language=unknown" >> $GITHUB_OUTPUT
-          fi
-
-  determine-language:
-    runs-on: ubuntu-latest
-    needs: detect-language
-    if: always()
-    outputs:
-      language: ${{ steps.determine.outputs.language }}
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Determine Language
-        id: determine
-        run: |
-          # Check if language was explicitly provided
-          if [ -n "${{ inputs.language }}" ]; then
-            echo "language=${{ inputs.language }}" >> $GITHUB_OUTPUT
-            echo "✅ Using explicitly provided language: ${{ inputs.language }}"
-          # Check if detect-language job succeeded and has output
-          elif [ "${{ needs.detect-language.result }}" == "success" ]; then
-            detected_lang="${{ needs.detect-language.outputs.language }}"
-            if [ -n "$detected_lang" ] && [ "$detected_lang" != "unknown" ]; then
-              echo "language=$detected_lang" >> $GITHUB_OUTPUT
-              echo "✅ Using auto-detected language: $detected_lang"
-            else
-              echo "language=unknown" >> $GITHUB_OUTPUT
-              echo "⚠️ Detected language is unknown or empty"
-            fi
-          else
-            # detect-language was skipped, try to detect manually
-            echo "⚠️ detect-language was skipped, attempting manual detection..."
-            if [ -f "composer.json" ]; then
-              echo "language=php" >> $GITHUB_OUTPUT
-            elif [ -f "package.json" ]; then
-              echo "language=javascript" >> $GITHUB_OUTPUT
-            elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
-              echo "language=python" >> $GITHUB_OUTPUT
-            elif [ -f "go.mod" ]; then
-              echo "language=go" >> $GITHUB_OUTPUT
-            else
-              echo "language=unknown" >> $GITHUB_OUTPUT
-            fi
-          fi
 
   linter-php:
-    needs: determine-language
-    if: ${{ !inputs.skip_linter && needs.determine-language.outputs.language == 'php' }}
+    if: ${{ !inputs.skip_linter && inputs.language == 'php' }}
     uses: ./.github/workflows/linter-php.yml
     with:
       skip_execution: ${{ inputs.skip_linter }}
     secrets: inherit
 
   linter-python:
-    needs: determine-language
-    if: ${{ !inputs.skip_linter && needs.determine-language.outputs.language == 'python' }}
+    if: ${{ !inputs.skip_linter && inputs.language == 'python' }}
     uses: ./.github/workflows/linter-python.yml
     with:
       skip_execution: ${{ inputs.skip_linter }}
     secrets: inherit
 
   linter-javascript:
-    needs: determine-language
-    if: ${{ !inputs.skip_linter && needs.determine-language.outputs.language == 'javascript' }}
+    if: ${{ !inputs.skip_linter && inputs.language == 'javascript' }}
     uses: ./.github/workflows/linter-javascript.yml
     with:
       skip_execution: ${{ inputs.skip_linter }}
     secrets: inherit
 
   linter-go:
-    needs: determine-language
-    if: ${{ !inputs.skip_linter && needs.determine-language.outputs.language == 'go' }}
+    if: ${{ !inputs.skip_linter && inputs.language == 'go' }}
     uses: ./.github/workflows/linter-go.yml
     with:
       skip_execution: ${{ inputs.skip_linter }}
     secrets: inherit
 
   security-scan:
-    needs: determine-language
+    if: ${{ !inputs.skip_security_scan }}
     uses: ./.github/workflows/security-scan.yml
     with:
-      language: ${{ needs.determine-language.outputs.language }}
+      language: ${{ inputs.language }}
       skip_execution: ${{ inputs.skip_security_scan }}
     secrets: inherit
 
   unit-tests:
-    needs: determine-language
-    if: ${{ !inputs.skip_unit_tests && needs.determine-language.outputs.language != 'unknown' }}
+    if: ${{ !inputs.skip_unit_tests }}
     uses: ./.github/workflows/unit-tests.yml
     with:
-      language: ${{ needs.determine-language.outputs.language }}
+      language: ${{ inputs.language }}
       skip_execution: ${{ inputs.skip_unit_tests }}
     secrets: inherit
 
   coverage-validation:
-    needs: [determine-language, unit-tests]
-    if: ${{ !inputs.skip_coverage_validation && needs.determine-language.outputs.language != 'unknown' }}
+    needs: unit-tests
+    if: ${{ !inputs.skip_coverage_validation }}
     uses: ./.github/workflows/coverage-validation.yml
     with:
-      language: ${{ needs.determine-language.outputs.language }}
+      language: ${{ inputs.language }}
       threshold: ${{ inputs.coverage_threshold }}
       skip_execution: ${{ inputs.skip_coverage_validation }}
     secrets: inherit
