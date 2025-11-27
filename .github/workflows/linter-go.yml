@@ -1,0 +1,30 @@
+name: Go Linter
+
+on:
+  workflow_call:
+    inputs:
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  go-linter:
+    name: Go Linter
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+

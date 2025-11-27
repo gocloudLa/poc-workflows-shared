@@ -1,0 +1,35 @@
+name: Conventional Commit Check
+
+on:
+  workflow_call:
+    inputs:
+      types:
+        description: 'Allowed PR types'
+        required: false
+        default: 'fix feat ci chore'
+        type: string
+      requireScope:
+        description: 'Whether to require a scope'
+        required: false
+        default: false
+        type: boolean
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  check-pr-title:
+    name: Check Pull Request Title
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: ${{ inputs.types }}
+          requireScope: ${{ inputs.requireScope }}
+

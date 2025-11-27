@@ -1,0 +1,61 @@
+name: Health Check
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: 'Environment name (dev, staging, prd)'
+        required: true
+        type: string
+      image_tag:
+        description: 'Docker image tag deployed'
+        required: true
+        type: string
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  health-check:
+    name: Health Check (${{ inputs.environment }})
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for service to be ready
+        run: |
+          echo "⏳ Waiting 3 minutes for service to stabilize..."
+          sleep 180
+          echo "✅ Wait period completed"
+
+      - name: Perform Health Check
+        run: |
+          echo "🏥 Performing health check for ${{ inputs.service_name }} in ${{ inputs.environment }}"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. curl https://${{ inputs.service_name }}-${{ inputs.environment }}.example.com/health"
+          echo "2. Verify response status code (200 OK)"
+          echo "3. Verify response body contains expected health indicators"
+          echo "4. Check service version matches ${{ inputs.image_tag }}"
+          echo ""
+          echo "✅ Health check passed (simulated)"
+
+      - name: Verify version in health endpoint
+        run: |
+          echo "🔍 Verifying version in health endpoint"
+          echo "Expected version: ${{ inputs.image_tag }}"
+          echo "✅ Version verification passed (simulated)"
+
+      - name: Log health check to Datadog
+        run: |
+          echo "📊 Logging health check results to Datadog (simulated)"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Status: Healthy"
+          echo "Version: ${{ inputs.image_tag }}"
+

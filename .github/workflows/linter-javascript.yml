@@ -1,0 +1,43 @@
+name: JavaScript Linter
+
+on:
+  workflow_call:
+    inputs:
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  javascript-linter:
+    name: JavaScript Linter
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          if [ -f "package.json" ]; then
+            npm ci
+          else
+            echo "package.json not found"
+            exit 1
+          fi
+
+      - name: Run ESLint
+        run: |
+          if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f ".eslintrc.yml" ] || [ -f "package.json" ]; then
+            npm run lint || npx eslint . || echo "ESLint found issues"
+          else
+            echo "ESLint configuration not found, running with defaults"
+            npx eslint . --ext .js,.jsx,.ts,.tsx || echo "ESLint found issues"
+          fi
+

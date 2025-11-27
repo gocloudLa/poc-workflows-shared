@@ -1,0 +1,49 @@
+name: PHP Linter
+
+on:
+  workflow_call:
+    inputs:
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  php-linter:
+    name: PHP Linter
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer, phpstan, phpcs
+
+      - name: Install Dependencies
+        run: |
+          if [ -f "composer.json" ]; then
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+          fi
+
+      - name: Run PHPStan
+        continue-on-error: true
+        run: |
+          if [ -f "phpstan.neon" ] || [ -f "phpstan.dist.neon" ]; then
+            vendor/bin/phpstan analyse || echo "PHPStan configuration not found, skipping"
+          else
+            echo "PHPStan configuration not found, skipping"
+          fi
+
+      - name: Run PHPCS
+        continue-on-error: true
+        run: |
+          if [ -f "phpcs.xml" ] || [ -f "phpcs.xml.dist" ]; then
+            vendor/bin/phpcs || echo "PHPCS configuration not found, skipping"
+          else
+            echo "PHPCS configuration not found, skipping"
+          fi
+

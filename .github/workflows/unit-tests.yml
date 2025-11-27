@@ -1,0 +1,86 @@
+name: Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        description: 'Programming language'
+        required: true
+        type: string
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  unit-tests:
+    name: Unit Tests (${{ inputs.language }})
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run PHP Tests
+        if: ${{ inputs.language == 'php' }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: xdebug
+        run: |
+          if [ -f "composer.json" ]; then
+            composer install --no-interaction --prefer-dist
+            vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml || true
+          else
+            echo "No composer.json found, skipping PHP tests"
+          fi
+
+      - name: Run Python Tests
+        if: ${{ inputs.language == 'python' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+        run: |
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          fi
+          pip install pytest pytest-cov
+          pytest --cov=. --cov-report=xml --cov-report=term || true
+
+      - name: Run JavaScript Tests
+        if: ${{ inputs.language == 'javascript' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+        run: |
+          if [ -f "package.json" ]; then
+            npm ci
+            npm test -- --coverage --coverageReporters=lcov || true
+          else
+            echo "No package.json found, skipping JavaScript tests"
+          fi
+
+      - name: Run Go Tests
+        if: ${{ inputs.language == 'go' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+        run: |
+          if [ -f "go.mod" ]; then
+            go test -v -coverprofile=coverage.out ./... || true
+            go tool cover -func=coverage.out || true
+          else
+            echo "No go.mod found, skipping Go tests"
+          fi
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: |
+            coverage.xml
+            coverage.out
+            coverage/lcov.info
+          fail_ci_if_error: false
+

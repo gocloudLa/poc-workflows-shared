@@ -1,0 +1,44 @@
+name: Deploy Verification
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: 'Environment name (dev, staging, prd)'
+        required: true
+        type: string
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy-verification:
+    name: Verify Deployment (${{ inputs.environment }})
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Deployment Status
+        run: |
+          echo "🔍 Verifying deployment status for ${{ inputs.service_name }} in ${{ inputs.environment }}"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. Check ECS service status (if using ECS)"
+          echo "2. Check Kubernetes deployment status (if using K8s)"
+          echo "3. Check ArgoCD application sync status (if using GitOps)"
+          echo "4. Verify Lambda function version (if applicable)"
+          echo ""
+          echo "✅ Deployment verification completed (simulated)"
+
+      - name: Query Datadog for deployment status
+        run: |
+          echo "📊 Querying Datadog for deployment metrics (simulated)"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Status: Healthy"
+

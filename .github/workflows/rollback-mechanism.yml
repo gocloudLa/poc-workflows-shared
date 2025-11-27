@@ -1,0 +1,60 @@
+name: Rollback Mechanism
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: 'Environment name (staging, prd)'
+        required: true
+        type: string
+      image_tag:
+        description: 'Current Docker image tag to rollback from'
+        required: true
+        type: string
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  rollback:
+    name: Rollback Mechanism (${{ inputs.environment }})
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Document Previous Version
+        run: |
+          echo "📝 Documenting previous version for rollback"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Current version: ${{ inputs.image_tag }}"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. Query deployment history to find previous stable version"
+          echo "2. Document the version for rollback"
+          echo "3. Store in a state file or database"
+
+      - name: Simulate Rollback
+        run: |
+          echo "🔄 Simulating rollback for ${{ inputs.service_name }} in ${{ inputs.environment }}"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. ArgoCD: argocd app rollback <app-name> <revision>"
+          echo "2. Argo Rollouts: kubectl argo rollouts undo <rollout-name>"
+          echo "3. ECS: Revert to previous task definition revision"
+          echo "4. Lambda: Update to previous version/alias"
+          echo ""
+          echo "⚠️  Rollback mechanism is simulated. Real rollback would be handled by GitOps/Infrastructure tools"
+
+      - name: Log Rollback to Datadog
+        run: |
+          echo "📊 Logging rollback event to Datadog (simulated)"
+          echo "Event: Service ${{ inputs.service_name }} rolled back in ${{ inputs.environment }}"
+          echo "From version: ${{ inputs.image_tag }}"
+          echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+

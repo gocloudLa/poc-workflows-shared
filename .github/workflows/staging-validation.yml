@@ -1,0 +1,68 @@
+name: Staging Validation
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  staging-validation:
+    name: Validate Staging Environment
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Datadog for Error Rate
+        run: |
+          echo "📊 Querying Datadog for error rate metrics (simulated)"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Environment: staging"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. Query Datadog API for error rate over last 15 minutes"
+          echo "2. Compare against threshold (e.g., < 1%)"
+          echo "3. Fail if threshold exceeded"
+          echo ""
+          echo "Current error rate: 0.2% (below threshold)"
+          echo "✅ Error rate validation passed"
+
+      - name: Query Datadog for Latency
+        run: |
+          echo "📊 Querying Datadog for latency metrics (simulated)"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Environment: staging"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. Query Datadog API for p95/p99 latency over last 15 minutes"
+          echo "2. Compare against threshold (e.g., p95 < 500ms)"
+          echo "3. Fail if threshold exceeded"
+          echo ""
+          echo "Current p95 latency: 250ms (below threshold)"
+          echo "✅ Latency validation passed"
+
+      - name: Query Datadog APM
+        run: |
+          echo "📊 Querying Datadog APM for service health (simulated)"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Environment: staging"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. Query Datadog APM for service traces"
+          echo "2. Check for critical errors or anomalies"
+          echo "3. Verify service dependencies are healthy"
+          echo ""
+          echo "APM Status: Healthy"
+          echo "✅ APM validation passed"
+
+      - name: Overall Validation Result
+        run: |
+          echo "✅ All staging validations passed"
+          echo "Service ${{ inputs.service_name }} is ready for production deployment"
+

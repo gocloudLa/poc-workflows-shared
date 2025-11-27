@@ -1,0 +1,75 @@
+name: Deploy to Staging
+
+on:
+  workflow_call:
+    inputs:
+      ecr_repository_url:
+        description: 'ECR repository URL'
+        required: true
+        type: string
+      aws_role_arn:
+        description: 'AWS IAM role ARN for staging environment'
+        required: true
+        type: string
+      aws_region:
+        description: 'AWS region'
+        required: false
+        type: string
+        default: 'us-east-1'
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        type: string
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging Environment
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.aws_role_arn }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Simulate Deployment to Staging
+        run: |
+          echo "🚀 Simulating deployment to STAGING environment"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "Image: ${{ inputs.ecr_repository_url }}:${{ inputs.image_tag }}"
+          echo "Environment: staging"
+          echo "Region: ${{ inputs.aws_region }}"
+          echo ""
+          echo "In a real scenario, this would:"
+          echo "1. Update ECS task definition or Kubernetes deployment"
+          echo "2. Trigger ArgoCD sync (if using GitOps)"
+          echo "3. Update Lambda function (if applicable)"
+          echo "4. Wait for deployment to complete"
+          echo ""
+          echo "✅ Deployment simulation completed"
+
+      - name: Log deployment to Datadog
+        run: |
+          echo "📊 Logging deployment event to Datadog (simulated)"
+          echo "Event: Service ${{ inputs.service_name }} deployed to staging"
+          echo "Version: ${{ inputs.image_tag }}"
+          echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+

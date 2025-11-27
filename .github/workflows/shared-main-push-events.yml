@@ -1,0 +1,218 @@
+name: "Shared Main Push Events"
+
+on:
+  workflow_call:
+    inputs:
+      # AWS Configuration
+      ecr_repository_url:
+        description: 'ECR repository URL'
+        required: true
+        type: string
+      aws_role_arn_shared:
+        description: 'AWS IAM role ARN for ECR access'
+        required: true
+        type: string
+      aws_role_arn_staging:
+        description: 'AWS IAM role ARN for staging environment'
+        required: true
+        type: string
+      aws_role_arn_prod:
+        description: 'AWS IAM role ARN for production environment'
+        required: true
+        type: string
+      aws_region:
+        description: 'AWS region'
+        required: false
+        type: string
+        default: 'us-east-1'
+      
+      # Service configuration
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
+      
+      # Skip flags
+      skip_release:
+        required: false
+        type: boolean
+        default: false
+      skip_build:
+        required: false
+        type: boolean
+        default: false
+      skip_staging_deploy:
+        required: false
+        type: boolean
+        default: false
+      skip_staging_validation:
+        required: false
+        type: boolean
+        default: false
+      skip_prod_deploy:
+        required: false
+        type: boolean
+        default: false
+      skip_prod_verification:
+        required: false
+        type: boolean
+        default: false
+      skip_prod_health_check:
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: shared-main-push-events-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-and-changelog:
+    uses: ./.github/workflows/release-and-changelog.yml
+    with:
+      release_type: node
+      skip_execution: ${{ inputs.skip_release }}
+    secrets: inherit
+
+  build-and-push:
+    needs: release-and-changelog
+    uses: ./.github/workflows/build-and-push.yml
+    with:
+      ecr_repository_url: ${{ inputs.ecr_repository_url }}
+      aws_role_arn: ${{ inputs.aws_role_arn_shared }}
+      aws_region: ${{ inputs.aws_region }}
+      service_name: ${{ inputs.service_name }}
+      branch: main
+      skip_execution: ${{ inputs.skip_build }}
+    secrets: inherit
+
+  deploy-staging:
+    needs: build-and-push
+    uses: ./.github/workflows/deploy-staging.yml
+    with:
+      ecr_repository_url: ${{ inputs.ecr_repository_url }}
+      aws_role_arn: ${{ inputs.aws_role_arn_staging }}
+      aws_region: ${{ inputs.aws_region }}
+      service_name: ${{ inputs.service_name }}
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+      skip_execution: ${{ inputs.skip_staging_deploy }}
+    secrets: inherit
+    environment:
+      name: staging
+
+  staging-verification:
+    needs: deploy-staging
+    uses: ./.github/workflows/deploy-verification.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: staging
+      skip_execution: ${{ inputs.skip_staging_validation }}
+    secrets: inherit
+
+  staging-health-check:
+    needs: staging-verification
+    uses: ./.github/workflows/health-check.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: staging
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+      skip_execution: ${{ inputs.skip_staging_validation }}
+    secrets: inherit
+
+  staging-validation:
+    needs: staging-health-check
+    uses: ./.github/workflows/staging-validation.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      skip_execution: ${{ inputs.skip_staging_validation }}
+    secrets: inherit
+
+  rollback-mechanism-staging:
+    if: failure() && needs.staging-validation.result == 'failure'
+    needs: [build-and-push, staging-validation]
+    uses: ./.github/workflows/rollback-mechanism.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: staging
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+    secrets: inherit
+
+  save-production-version:
+    needs: [build-and-push, staging-validation]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save Production Version
+        run: |
+          echo "Version ${{ needs.build-and-push.outputs.image_tag }} is ready for production deployment"
+          echo "This version has passed all staging validations"
+
+  deploy-production:
+    needs: [build-and-push, staging-validation, save-production-version]
+    if: success()
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      ecr_repository_url: ${{ inputs.ecr_repository_url }}
+      aws_role_arn: ${{ inputs.aws_role_arn_prod }}
+      aws_region: ${{ inputs.aws_region }}
+      service_name: ${{ inputs.service_name }}
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+      skip_execution: ${{ inputs.skip_prod_deploy }}
+    secrets: inherit
+    environment:
+      name: prd
+
+  production-verification:
+    needs: deploy-production
+    uses: ./.github/workflows/deploy-verification.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: prd
+      skip_execution: ${{ inputs.skip_prod_verification }}
+    secrets: inherit
+
+  production-health-check:
+    needs: production-verification
+    uses: ./.github/workflows/health-check.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: prd
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+      skip_execution: ${{ inputs.skip_prod_health_check }}
+    secrets: inherit
+
+  rollback-mechanism-production:
+    if: failure() && needs.production-health-check.result == 'failure'
+    needs: [build-and-push, production-health-check]
+    uses: ./.github/workflows/rollback-mechanism.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: prd
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+    secrets: inherit
+
+  workflow-summary:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [release-and-changelog, build-and-push, deploy-staging, staging-validation, deploy-production, production-health-check]
+    steps:
+      - name: Workflow Summary
+        run: |
+          echo "## Main Branch Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Release & Changelog | ${{ needs.release-and-changelog.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy to Staging | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Staging Validation | ${{ needs.staging-validation.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy to Production | ${{ needs.deploy-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Production Health Check | ${{ needs.production-health-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "❌ Deployment failed or was cancelled"
+            exit 1
+          else
+            echo "✅ Deployment completed successfully"
+          fi
+
