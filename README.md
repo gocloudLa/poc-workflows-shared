@@ -27,7 +27,8 @@ Sistema de workflows de CI/CD centralizados y reutilizables para estandarizar pi
   conventional-commit-check.yml       # Validación de conventional commits
   linter-php.yml
   linter-python.yml
-  security-scan.yml                   # CodeQL, Dependabot, Trivy
+  security-scan-php.yml               # CodeQL PHP, Dependabot, Trivy
+  security-scan-python.yml            # CodeQL Python, Dependabot, Trivy
   unit-tests.yml                      # Tests unitarios multi-lenguaje
   coverage-validation.yml             # Validación de cobertura
   build-and-push.yml                  # Build Docker y push a ECR

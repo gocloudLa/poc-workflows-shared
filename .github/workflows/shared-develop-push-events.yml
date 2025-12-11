@@ -29,6 +29,12 @@ on:
         type: string
         default: ''
       
+      # Language
+      language:
+        description: 'Programming language (php, python)'
+        required: true
+        type: string
+      
       # Skip flags
       skip_security_scan:
         required: false
@@ -56,14 +62,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  security-scan:
-    uses: ./.github/workflows/security-scan.yml
+  security-scan-php:
+    if: ${{ !inputs.skip_security_scan && inputs.language == 'php' }}
+    uses: ./.github/workflows/security-scan-php.yml
     with:
       skip_execution: ${{ inputs.skip_security_scan }}
     secrets: inherit
 
+  security-scan-python:
+    if: ${{ !inputs.skip_security_scan && inputs.language == 'python' }}
+    uses: ./.github/workflows/security-scan-python.yml
+    with:
+      skip_execution: ${{ inputs.skip_security_scan }}
+    secrets: inherit
+
+  security-scan-complete:
+    if: always()
+    needs: [security-scan-php, security-scan-python]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check security scan results
+        run: |
+          PHP_RESULT="${{ needs.security-scan-php.result }}"
+          PYTHON_RESULT="${{ needs.security-scan-python.result }}"
+          
+          if [ "${{ inputs.language }}" = "php" ]; then
+            if [ "$PHP_RESULT" != "success" ] && [ "$PHP_RESULT" != "skipped" ]; then
+              echo "❌ PHP security scan failed"
+              exit 1
+            fi
+          elif [ "${{ inputs.language }}" = "python" ]; then
+            if [ "$PYTHON_RESULT" != "success" ] && [ "$PYTHON_RESULT" != "skipped" ]; then
+              echo "❌ Python security scan failed"
+              exit 1
+            fi
+          fi
+          echo "✅ Security scan validation passed"
+
   build-and-push:
-    needs: security-scan
+    needs: security-scan-complete
     uses: ./.github/workflows/build-and-push.yml
     with:
       ecr_repository_url: ${{ inputs.ecr_repository_url }}
@@ -108,14 +145,20 @@ jobs:
   workflow-summary:
     if: always()
     runs-on: ubuntu-latest
-    needs: [security-scan, build-and-push, deploy-dev, deploy-verification, health-check]
+    needs: [security-scan-complete, build-and-push, deploy-dev, deploy-verification, health-check]
     steps:
       - name: Workflow Summary
         run: |
           echo "## Develop Branch Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.security-scan-php.result }}" != "skipped" ] && [ "${{ needs.security-scan-php.result }}" != "" ]; then
+            echo "| Security Scan (PHP) | ${{ needs.security-scan-php.result }} |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.security-scan-python.result }}" != "skipped" ] && [ "${{ needs.security-scan-python.result }}" != "" ]; then
+            echo "| Security Scan (Python) | ${{ needs.security-scan-python.result }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Security Scan | skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deploy to Dev | ${{ needs.deploy-dev.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deploy Verification | ${{ needs.deploy-verification.result }} |" >> $GITHUB_STEP_SUMMARY

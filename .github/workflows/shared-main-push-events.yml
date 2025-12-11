@@ -33,6 +33,12 @@ on:
         type: string
         default: ''
       
+      # Language
+      language:
+        description: 'Programming language (php, python)'
+        required: true
+        type: string
+      
       # Skip flags
       skip_release:
         required: false

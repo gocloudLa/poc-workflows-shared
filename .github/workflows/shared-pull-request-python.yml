@@ -69,9 +69,8 @@ jobs:
 
   security-scan:
     if: ${{ !inputs.skip_security_scan }}
-    uses: ./.github/workflows/security-scan.yml
+    uses: ./.github/workflows/security-scan-python.yml
     with:
-      language: python
       skip_execution: ${{ inputs.skip_security_scan }}
     secrets: inherit
 
