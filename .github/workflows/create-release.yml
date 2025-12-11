@@ -1,0 +1,100 @@
+name: Create Release
+
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: 'Tag name to create release for (e.g., v1.2.0)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Release notes (optional)'
+        required: false
+        type: string
+        default: ''
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag exists
+        run: |
+          if ! git rev-parse "${{ inputs.tag_name }}" >/dev/null 2>&1; then
+            echo "❌ Tag ${{ inputs.tag_name }} does not exist"
+            echo "Available tags:"
+            git tag -l | tail -10
+            exit 1
+          fi
+          echo "✅ Tag ${{ inputs.tag_name }} exists"
+
+      - name: Check if release already exists
+        id: check-release
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.tag_name }}")
+          
+          if [ "$RESPONSE" = "200" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Release for tag ${{ inputs.tag_name }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ No existing release found for tag ${{ inputs.tag_name }}"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check-release.outputs.exists == 'false'
+        run: |
+          RELEASE_NOTES="${{ inputs.release_notes }}"
+          if [ -z "$RELEASE_NOTES" ]; then
+            RELEASE_NOTES="Automated release created after successful staging validation."
+          fi
+          
+          RELEASE_BODY=$(cat <<EOF
+          $RELEASE_NOTES
+          
+          **Deployment Information:**
+          - Tag: ${{ inputs.tag_name }}
+          - Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          This release will trigger the production deployment workflow.
+          EOF
+          )
+          
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases" \
+            -d "{
+              \"tag_name\": \"${{ inputs.tag_name }}\",
+              \"name\": \"Release ${{ inputs.tag_name }}\",
+              \"body\": $(echo "$RELEASE_BODY" | jq -Rs .),
+              \"draft\": false,
+              \"prerelease\": false
+            }"
+          
+          echo "✅ Release created successfully"
+
+      - name: Output release information
+        run: |
+          if [ "${{ steps.check-release.outputs.exists }}" = "false" ]; then
+            echo "✅ Release created successfully: ${{ inputs.tag_name }}"
+            echo "🚀 Production deployment will be triggered automatically"
+          else
+            echo "ℹ️ Release already exists, skipping creation"
+          fi
+

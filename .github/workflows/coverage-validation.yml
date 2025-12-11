@@ -48,28 +48,3 @@ jobs:
             echo "⚠️ No coverage file found, skipping validation"
           fi
 
-      - name: Validate JavaScript Coverage
-        if: ${{ inputs.language == 'javascript' }}
-        run: |
-          if [ -f "coverage/lcov.info" ]; then
-            echo "Coverage file found, validating threshold of ${{ inputs.threshold }}%"
-            # In a real scenario, you would parse lcov.info and check the threshold
-            echo "✅ Coverage validation passed (simulated)"
-          else
-            echo "⚠️ No coverage file found, skipping validation"
-          fi
-
-      - name: Validate Go Coverage
-        if: ${{ inputs.language == 'go' }}
-        run: |
-          if [ -f "coverage.out" ]; then
-            echo "Coverage file found, validating threshold of ${{ inputs.threshold }}%"
-            COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-            echo "Current coverage: ${COVERAGE}%"
-            echo "Required threshold: ${{ inputs.threshold }}%"
-            # In a real scenario, you would compare COVERAGE with threshold
-            echo "✅ Coverage validation passed (simulated)"
-          else
-            echo "⚠️ No coverage file found, skipping validation"
-          fi
-

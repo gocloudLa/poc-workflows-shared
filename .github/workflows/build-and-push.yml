@@ -41,6 +41,7 @@ jobs:
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
       image_digest: ${{ steps.build.outputs.digest }}
+      version_tag: ${{ steps.meta.outputs.version_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -72,6 +73,8 @@ jobs:
             git fetch --tags
             VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
             echo "Using version tag: $VERSION"
+            # Output version tag separately for easier access
+            echo "version_tag=${VERSION}" >> $GITHUB_OUTPUT
             # Create tags: version, version-stg, version-prd
             echo "tags=${{ inputs.ecr_repository_url }}:${VERSION},${{ inputs.ecr_repository_url }}:${VERSION}-stg,${{ inputs.ecr_repository_url }}:${VERSION}-prd" >> $GITHUB_OUTPUT
           else

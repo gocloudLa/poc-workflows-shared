@@ -18,18 +18,22 @@ Sistema de workflows de CI/CD centralizados y reutilizables para estandarizar pi
 ```
 .github/workflows/
   # Workflows Orquestadores
-  shared-pull-request-events.yml      # Validaciones en PRs
+  shared-pull-request-php.yml        # Validaciones en PRs para PHP
+  shared-pull-request-python.yml     # Validaciones en PRs para Python
   shared-develop-push-events.yml      # Deploy a dev
   shared-main-push-events.yml         # Release y deploy a staging/prod
   
   # Workflows de Jobs Individuales
   conventional-commit-check.yml       # Validación de conventional commits
-  linter-php.yml, linter-python.yml, linter-javascript.yml, linter-go.yml
+  linter-php.yml
+  linter-python.yml
   security-scan.yml                   # CodeQL, Dependabot, Trivy
   unit-tests.yml                      # Tests unitarios multi-lenguaje
   coverage-validation.yml             # Validación de cobertura
   build-and-push.yml                  # Build Docker y push a ECR
-  deploy-dev.yml, deploy-staging.yml, deploy-production.yml
+  deploy-dev.yml
+  deploy-staging.yml
+  deploy-production.yml
   release-and-changelog.yml           # Release y changelog con release-please
 ```
 
@@ -145,7 +149,8 @@ permissions:
 
 jobs:
   pull-request-events:
-    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-pull-request-events.yml@main
+    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-pull-request-php.yml@main
+    # Para Python usar: shared-pull-request-python.yml
     with:
       language: php  # o python, javascript, go
     secrets: inherit

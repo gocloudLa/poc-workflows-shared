@@ -53,46 +53,11 @@ jobs:
           pip install pytest pytest-cov
           pytest --cov=. --cov-report=xml --cov-report=term || true
 
-      - name: Setup Node.js
-        if: ${{ inputs.language == 'javascript' }}
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Run JavaScript Tests
-        if: ${{ inputs.language == 'javascript' }}
-        run: |
-          if [ -f "package.json" ]; then
-            npm ci
-            npm test -- --coverage --coverageReporters=lcov || true
-          else
-            echo "No package.json found, skipping JavaScript tests"
-          fi
-
-      - name: Setup Go
-        if: ${{ inputs.language == 'go' }}
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.21'
-
-      - name: Run Go Tests
-        if: ${{ inputs.language == 'go' }}
-        run: |
-          if [ -f "go.mod" ]; then
-            go test -v -coverprofile=coverage.out ./... || true
-            go tool cover -func=coverage.out || true
-          else
-            echo "No go.mod found, skipping Go tests"
-          fi
-
       - name: Upload Coverage
         uses: codecov/codecov-action@v5
         if: always()
         with:
           files: |
             coverage.xml
-            coverage.out
-            coverage/lcov.info
           fail_ci_if_error: false
 

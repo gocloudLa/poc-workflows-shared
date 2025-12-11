@@ -1,0 +1,117 @@
+name: "Shared Pull Request Events (PHP)"
+
+on:
+  workflow_call:
+    inputs:
+      skip_conventional_commit:
+        required: false
+        type: boolean
+        default: false
+      skip_linter:
+        required: false
+        type: boolean
+        default: false
+      skip_security_scan:
+        required: false
+        type: boolean
+        default: false
+      skip_unit_tests:
+        required: false
+        type: boolean
+        default: false
+      skip_coverage_validation:
+        required: false
+        type: boolean
+        default: false
+      
+      # Conventional commit configuration
+      conventional_commit_types:
+        description: 'Allowed PR types for conventional commits'
+        required: false
+        type: string
+        default: |
+          fix
+          feat
+          ci
+          chore
+      require_scope:
+        description: 'Whether to require a scope in conventional commits'
+        required: false
+        type: boolean
+        default: false
+      
+      # Coverage configuration
+      coverage_threshold:
+        description: 'Minimum coverage percentage required'
+        required: false
+        type: number
+        default: 80
+
+concurrency:
+  group: shared-pull-request-events-php-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-commit-check:
+    uses: ./.github/workflows/conventional-commit-check.yml
+    with:
+      types: ${{ inputs.conventional_commit_types }}
+      requireScope: ${{ inputs.require_scope }}
+      skip_execution: ${{ inputs.skip_conventional_commit }}
+    secrets: inherit
+
+  linter-php:
+    if: ${{ !inputs.skip_linter }}
+    uses: ./.github/workflows/linter-php.yml
+    with:
+      skip_execution: ${{ inputs.skip_linter }}
+    secrets: inherit
+
+  security-scan:
+    if: ${{ !inputs.skip_security_scan }}
+    uses: ./.github/workflows/security-scan.yml
+    with:
+      language: php
+      skip_execution: ${{ inputs.skip_security_scan }}
+    secrets: inherit
+
+  unit-tests:
+    if: ${{ !inputs.skip_unit_tests }}
+    uses: ./.github/workflows/unit-tests.yml
+    with:
+      language: php
+      skip_execution: ${{ inputs.skip_unit_tests }}
+    secrets: inherit
+
+  coverage-validation:
+    needs: unit-tests
+    if: ${{ !inputs.skip_coverage_validation }}
+    uses: ./.github/workflows/coverage-validation.yml
+    with:
+      language: php
+      threshold: ${{ inputs.coverage_threshold }}
+      skip_execution: ${{ inputs.skip_coverage_validation }}
+    secrets: inherit
+
+  workflow-summary:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [conventional-commit-check, linter-php, security-scan, unit-tests, coverage-validation]
+    steps:
+      - name: Workflow Summary
+        run: |
+          echo "## Workflow Summary (PHP)" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Conventional Commit | ${{ needs.conventional-commit-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Linter (PHP) | ${{ needs.linter-php.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage Validation | ${{ needs.coverage-validation.result }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "❌ Workflow failed or was cancelled"
+            exit 1
+          else
+            echo "✅ All checks passed"
+          fi

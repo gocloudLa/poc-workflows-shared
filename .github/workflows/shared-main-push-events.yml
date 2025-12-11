@@ -140,58 +140,25 @@ jobs:
     needs: [build-and-push, staging-validation]
     if: success()
     runs-on: ubuntu-latest
+    outputs:
+      version_tag: ${{ needs.build-and-push.outputs.version_tag }}
     steps:
       - name: Save Production Version
         run: |
-          echo "Version ${{ needs.build-and-push.outputs.image_tag }} is ready for production deployment"
+          VERSION_TAG="${{ needs.build-and-push.outputs.version_tag }}"
+          echo "Version $VERSION_TAG is ready for production deployment"
           echo "This version has passed all staging validations"
-
-  deploy-production:
-    needs: [build-and-push, staging-validation, save-production-version]
-    if: success()
-    uses: ./.github/workflows/deploy-production.yml
-    with:
-      ecr_repository_url: ${{ inputs.ecr_repository_url }}
-      aws_role_arn: ${{ inputs.aws_role_arn_prod }}
-      aws_region: ${{ inputs.aws_region }}
-      service_name: ${{ inputs.service_name }}
-      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
-      skip_execution: ${{ inputs.skip_prod_deploy }}
-    secrets: inherit
-
-  production-verification:
-    needs: deploy-production
-    uses: ./.github/workflows/deploy-verification.yml
-    with:
-      service_name: ${{ inputs.service_name }}
-      environment: prd
-      skip_execution: ${{ inputs.skip_prod_verification }}
-    secrets: inherit
-
-  production-health-check:
-    needs: production-verification
-    uses: ./.github/workflows/health-check.yml
-    with:
-      service_name: ${{ inputs.service_name }}
-      environment: prd
-      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
-      skip_execution: ${{ inputs.skip_prod_health_check }}
-    secrets: inherit
-
-  rollback-mechanism-production:
-    if: failure() && needs.production-health-check.result == 'failure'
-    needs: [build-and-push, production-health-check]
-    uses: ./.github/workflows/rollback-mechanism.yml
-    with:
-      service_name: ${{ inputs.service_name }}
-      environment: prd
-      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
-    secrets: inherit
+          echo ""
+          echo "📦 To deploy to production:"
+          echo "1. Go to Actions tab: https://github.com/${{ github.repository }}/actions"
+          echo "2. Select 'Create Release' workflow"
+          echo "3. Click 'Run workflow' and use tag: $VERSION_TAG"
+          echo "4. The release event will trigger the production deployment workflow"
 
   workflow-summary:
     if: always()
     runs-on: ubuntu-latest
-    needs: [release-and-changelog, build-and-push, deploy-staging, staging-validation, deploy-production, production-health-check]
+    needs: [release-and-changelog, build-and-push, deploy-staging, staging-validation, save-production-version]
     steps:
       - name: Workflow Summary
         run: |
@@ -202,8 +169,8 @@ jobs:
           echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deploy to Staging | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Staging Validation | ${{ needs.staging-validation.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy to Production | ${{ needs.deploy-production.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Production Health Check | ${{ needs.production-health-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo ""
+          echo "📦 **Next Step**: Create a GitHub Release to deploy to Production" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
             echo "❌ Deployment failed or was cancelled"
