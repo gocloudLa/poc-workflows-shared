@@ -26,7 +26,7 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+      image_tag: ${{ steps.meta.outputs.tag_only }}
       image_digest: ${{ steps.build.outputs.digest }}
       version_tag: ${{ steps.meta.outputs.version_tag }}
     steps:
@@ -64,6 +64,8 @@ jobs:
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
           if [ "${{ inputs.branch }}" = "develop" ]; then
             echo "tags=${ECR_REPO}:${SHORT_SHA},${ECR_REPO}:develop-latest" >> $GITHUB_OUTPUT
+            # Output only the tag (without ECR URL) for job output to avoid secret detection
+            echo "tag_only=${SHORT_SHA}" >> $GITHUB_OUTPUT
           elif [ "${{ inputs.branch }}" = "main" ]; then
             # Get the latest tag (should be the one just created by release-please)
             # Fetch all tags first
@@ -74,8 +76,11 @@ jobs:
             echo "version_tag=${VERSION}" >> $GITHUB_OUTPUT
             # Create tags: version, version-stg, version-prd
             echo "tags=${ECR_REPO}:${VERSION},${ECR_REPO}:${VERSION}-stg,${ECR_REPO}:${VERSION}-prd" >> $GITHUB_OUTPUT
+            # Output only the tag (without ECR URL) for job output to avoid secret detection
+            echo "tag_only=${VERSION}" >> $GITHUB_OUTPUT
           else
             echo "tags=${ECR_REPO}:${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "tag_only=${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and push Docker image
