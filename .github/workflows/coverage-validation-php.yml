@@ -39,23 +39,35 @@ jobs:
           echo "Coverage file found, validating threshold of ${{ inputs.threshold }}%"
           
           # Parse PHPUnit coverage.xml (Clover format)
+          # Try to get line-rate from the project or package element
           COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1)
+          
           if [ -z "$COVERAGE" ]; then
-            # Try alternative format: statements covered/total
+            # Try alternative format: get from metrics element
+            COVERAGE=$(grep -oP '<metrics[^>]*line-rate="\K[0-9.]+' coverage.xml | head -1)
+          fi
+          
+          if [ -z "$COVERAGE" ]; then
+            # Try calculating from statements covered/total
             COVERED=$(grep -oP 'statements="\d+" covered="\K[0-9]+' coverage.xml | head -1)
             TOTAL=$(grep -oP 'statements="\K[0-9]+' coverage.xml | head -1)
-            if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+            if [ -n "$COVERED" ] && [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
               COVERAGE=$(python3 -c "print($COVERED / $TOTAL)")
             fi
           fi
           
           if [ -z "$COVERAGE" ]; then
             echo "⚠️ Could not parse coverage from coverage.xml"
-            echo "File contents:"
-            head -20 coverage.xml
+            echo "Attempting to show file structure:"
+            head -30 coverage.xml
+            echo ""
+            echo "Trying alternative parsing methods..."
+            # Try to find any metrics element
+            grep -i "line-rate\|coverage\|metrics" coverage.xml | head -5
             exit 1
           fi
           
+          # Calculate percentage and validate
           COVERAGE_PERCENT=$(python3 -c "print(int(float('$COVERAGE') * 100))")
           echo "Current coverage: ${COVERAGE_PERCENT}%"
           echo "Required threshold: ${{ inputs.threshold }}%"
