@@ -63,8 +63,20 @@ jobs:
       skip_execution: ${{ inputs.skip_security_scan }}
     secrets: inherit
 
-  build-and-push:
+  debug-inputs:
+    if: always()
     needs: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Input Values
+        run: |
+          echo "ecr_repository_url: '${{ inputs.ecr_repository_url }}'"
+          echo "aws_role_arn_shared: '${{ inputs.aws_role_arn_shared }}'"
+          echo "aws_region: '${{ inputs.aws_region }}'"
+          echo "service_name: '${{ inputs.service_name }}'"
+
+  build-and-push:
+    needs: [security-scan, debug-inputs]
     uses: ./.github/workflows/build-and-push.yml
     with:
       ecr_repository_url: ${{ inputs.ecr_repository_url }}
