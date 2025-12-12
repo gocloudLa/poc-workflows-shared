@@ -43,56 +43,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_SHARED }}
           aws-region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
 
-      - name: Debug AWS configuration and ECR permissions
-        run: |
-          echo "AWS Region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}"
-          echo "ECR Repository URL: ${{ secrets.ECR_REPOSITORY_URL }}"
-          echo "AWS Role ARN: ${{ secrets.AWS_ROLE_ARN_SHARED }}"
-          echo ""
-          echo "Current AWS Identity:"
-          aws sts get-caller-identity || true
-          echo ""
-          echo "Testing ECR repository access:"
-          ECR_REPO_NAME=$(echo "${{ secrets.ECR_REPOSITORY_URL }}" | cut -d'/' -f2)
-          aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }} || echo "❌ Cannot describe repository"
-          echo ""
-          echo "Testing ECR permissions:"
-          echo "Testing ecr:PutImage permission..."
-          aws ecr batch-check-layer-availability --repository-name "$ECR_REPO_NAME" --layer-digests sha256:0000000000000000000000000000000000000000000000000000000000000000 --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }} 2>&1 | head -5 || echo "⚠️  Permission check result (this is expected to fail with invalid digest)"
-          echo ""
-          echo "Testing ecr:GetAuthorizationToken permission..."
-          aws ecr get-authorization-token --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }} --query 'authorizationData[0].authorizationToken' --output text > /dev/null && echo "✅ Can get authorization token" || echo "❌ Cannot get authorization token"
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-        with:
-          aws-region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
 
       - name: Get ECR login token and login to Docker
         id: ecr-docker-login
         run: |
-          # Extract registry URL from ECR repository URL
           ECR_REGISTRY=$(echo "${{ secrets.ECR_REPOSITORY_URL }}" | cut -d'/' -f1)
-          echo "ECR Registry: $ECR_REGISTRY"
-          echo "registry=${ECR_REGISTRY}" >> $GITHUB_OUTPUT
-          # Get ECR login token
           ECR_TOKEN=$(aws ecr get-login-password --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }})
-          if [ -z "$ECR_TOKEN" ]; then
-            echo "❌ ERROR: Failed to get ECR login token"
-            exit 1
-          fi
-          # Login to Docker registry
           echo "$ECR_TOKEN" | docker login --username AWS --password-stdin $ECR_REGISTRY
-          if [ $? -eq 0 ]; then
-            echo "✅ Successfully logged in to ECR"
-            # Verify login by checking Docker config
-            echo "Verifying Docker login..."
-            cat ~/.docker/config.json | grep -q "$ECR_REGISTRY" && echo "✅ ECR registry found in Docker config" || echo "⚠️  ECR registry not found in Docker config"
-          else
-            echo "❌ ERROR: Failed to login to ECR"
-            exit 1
-          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -117,11 +77,6 @@ jobs:
           else
             echo "tags=${ECR_REPO}:${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
-
-      # - name: 'Build and push Docker image (debug)'
-      #   run: |
-      #     docker build . -f Dockerfile -t 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
-      #     docker push 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
 
       - name: Build and push Docker image
         id: build
