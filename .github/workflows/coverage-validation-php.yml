@@ -39,20 +39,25 @@ jobs:
           echo "Coverage file found, validating threshold of ${{ inputs.threshold }}%"
           
           # Parse PHPUnit coverage.xml (Clover format)
-          # Try to get line-rate from the project or package element
+          # Method 1: Try to get line-rate directly (if present)
           COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1)
           
           if [ -z "$COVERAGE" ]; then
-            # Try alternative format: get from metrics element
-            COVERAGE=$(grep -oP '<metrics[^>]*line-rate="\K[0-9.]+' coverage.xml | head -1)
-          fi
-          
-          if [ -z "$COVERAGE" ]; then
-            # Try calculating from statements covered/total
-            COVERED=$(grep -oP 'statements="\d+" covered="\K[0-9]+' coverage.xml | head -1)
-            TOTAL=$(grep -oP 'statements="\K[0-9]+' coverage.xml | head -1)
-            if [ -n "$COVERED" ] && [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
-              COVERAGE=$(python3 -c "print($COVERED / $TOTAL)")
+            # Method 2: Calculate from coveredstatements/statements
+            # Get values from the project-level metrics (most accurate)
+            # First try to get from the project metrics element
+            COVERED_STATEMENTS=$(grep -oP 'coveredstatements="\K[0-9]+' coverage.xml | tail -1)
+            TOTAL_STATEMENTS=$(grep -oP 'statements="\K[0-9]+' coverage.xml | tail -1)
+            
+            # If still empty, try getting from any metrics element
+            if [ -z "$COVERED_STATEMENTS" ] || [ -z "$TOTAL_STATEMENTS" ]; then
+              COVERED_STATEMENTS=$(grep -oP 'coveredstatements="\K[0-9]+' coverage.xml | head -1)
+              TOTAL_STATEMENTS=$(grep -oP 'statements="\K[0-9]+' coverage.xml | head -1)
+            fi
+            
+            if [ -n "$COVERED_STATEMENTS" ] && [ -n "$TOTAL_STATEMENTS" ] && [ "$TOTAL_STATEMENTS" -gt 0 ]; then
+              COVERAGE=$(python3 -c "print($COVERED_STATEMENTS / $TOTAL_STATEMENTS)")
+              echo "Calculated coverage from statements: $COVERED_STATEMENTS / $TOTAL_STATEMENTS = $COVERAGE"
             fi
           fi
           
@@ -63,7 +68,7 @@ jobs:
             echo ""
             echo "Trying alternative parsing methods..."
             # Try to find any metrics element
-            grep -i "line-rate\|coverage\|metrics" coverage.xml | head -5
+            grep -i "statements\|coverage\|metrics" coverage.xml | head -5
             exit 1
           fi
           
