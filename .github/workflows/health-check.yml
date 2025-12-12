@@ -29,8 +29,8 @@ jobs:
     steps:
       - name: Wait for service to be ready
         run: |
-          echo "⏳ Waiting 3 minutes for service to stabilize..."
-          sleep 180
+          echo "⏳ Waiting 1 minute(s) for service to stabilize..."
+          sleep 60
           echo "✅ Wait period completed"
 
       - name: Perform Health Check
