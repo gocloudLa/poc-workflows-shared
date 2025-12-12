@@ -44,38 +44,10 @@ jobs:
       skip_execution: ${{ inputs.skip_security_scan }}
     secrets: inherit
 
-  debug-inputs:
-    if: always()
-    needs: security-scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug Secrets and Inputs
-        run: |
-          echo "Secrets (checking if set):"
-          if [ -z "${{ secrets.ECR_REPOSITORY_URL }}" ]; then
-            echo "ERROR: ECR_REPOSITORY_URL secret is empty!"
-          else
-            echo "✓ ECR_REPOSITORY_URL is set"
-          fi
-          if [ -z "${{ secrets.AWS_ROLE_ARN_SHARED }}" ]; then
-            echo "ERROR: AWS_ROLE_ARN_SHARED secret is empty!"
-          else
-            echo "✓ AWS_ROLE_ARN_SHARED is set"
-          fi
-          if [ -z "${{ secrets.AWS_ROLE_ARN_DEV }}" ]; then
-            echo "ERROR: AWS_ROLE_ARN_DEV secret is empty!"
-          else
-            echo "✓ AWS_ROLE_ARN_DEV is set"
-          fi
-          echo "service_name: '${{ inputs.service_name }}'"
-
   build-and-push:
-    needs: [security-scan, debug-inputs]
+    needs: security-scan
     uses: ./.github/workflows/build-and-push.yml
     with:
-      ecr_repository_url: ${{ secrets.ECR_REPOSITORY_URL }}
-      aws_role_arn: ${{ secrets.AWS_ROLE_ARN_SHARED }}
-      aws_region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
       service_name: ${{ inputs.service_name }}
       branch: develop
       skip_execution: ${{ inputs.skip_build }}
@@ -85,9 +57,6 @@ jobs:
     needs: build-and-push
     uses: ./.github/workflows/deploy-dev.yml
     with:
-      ecr_repository_url: ${{ secrets.ECR_REPOSITORY_URL }}
-      aws_role_arn: ${{ secrets.AWS_ROLE_ARN_DEV }}
-      aws_region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
       service_name: ${{ inputs.service_name }}
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_deploy }}

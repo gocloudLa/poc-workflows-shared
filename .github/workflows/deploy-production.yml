@@ -3,19 +3,6 @@ name: Deploy to Production
 on:
   workflow_call:
     inputs:
-      ecr_repository_url:
-        description: 'ECR repository URL'
-        required: true
-        type: string
-      aws_role_arn:
-        description: 'AWS IAM role ARN for production environment'
-        required: true
-        type: string
-      aws_region:
-        description: 'AWS region'
-        required: false
-        type: string
-        default: 'us-east-1'
       service_name:
         description: 'Service name'
         required: false
@@ -47,16 +34,16 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: ${{ inputs.aws_role_arn }}
-          aws-region: ${{ inputs.aws_region }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
 
       - name: Simulate Deployment to Production
         run: |
           echo "🚀 Simulating deployment to PRODUCTION environment"
           echo "Service: ${{ inputs.service_name }}"
-          echo "Image: ${{ inputs.ecr_repository_url }}:${{ inputs.image_tag }}"
+          echo "Image: ${{ secrets.ECR_REPOSITORY_URL }}:${{ inputs.image_tag }}"
           echo "Environment: prd"
-          echo "Region: ${{ inputs.aws_region }}"
+          echo "Region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}"
           echo ""
           echo "⚠️  This deployment requires manual approval (PCI compliance)"
           echo ""

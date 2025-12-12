@@ -56,9 +56,6 @@ jobs:
     needs: release-and-changelog
     uses: ./.github/workflows/build-and-push.yml
     with:
-      ecr_repository_url: ${{ secrets.ECR_REPOSITORY_URL }}
-      aws_role_arn: ${{ secrets.AWS_ROLE_ARN_SHARED }}
-      aws_region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
       service_name: ${{ inputs.service_name }}
       branch: main
       skip_execution: ${{ inputs.skip_build }}
@@ -68,9 +65,6 @@ jobs:
     needs: build-and-push
     uses: ./.github/workflows/deploy-staging.yml
     with:
-      ecr_repository_url: ${{ secrets.ECR_REPOSITORY_URL }}
-      aws_role_arn: ${{ secrets.AWS_ROLE_ARN_STAGING }}
-      aws_region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
       service_name: ${{ inputs.service_name }}
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_staging_deploy }}

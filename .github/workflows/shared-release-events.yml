@@ -3,21 +3,6 @@ name: "Shared Release Events"
 on:
   workflow_call:
     inputs:
-      # AWS Configuration
-      ecr_repository_url:
-        description: 'ECR repository URL'
-        required: true
-        type: string
-      aws_role_arn_prod:
-        description: 'AWS IAM role ARN for production environment'
-        required: true
-        type: string
-      aws_region:
-        description: 'AWS region'
-        required: false
-        type: string
-        default: 'us-east-1'
-      
       # Service configuration
       service_name:
         description: 'Service name'
@@ -54,9 +39,6 @@ jobs:
     if: ${{ !inputs.skip_prod_deploy }}
     uses: ./.github/workflows/deploy-production.yml
     with:
-      ecr_repository_url: ${{ inputs.ecr_repository_url }}
-      aws_role_arn: ${{ inputs.aws_role_arn_prod }}
-      aws_region: ${{ inputs.aws_region }}
       service_name: ${{ inputs.service_name }}
       image_tag: ${{ inputs.release_tag }}
       skip_execution: ${{ inputs.skip_prod_deploy }}
