@@ -34,7 +34,8 @@ jobs:
 
   dependency-review:
     name: Dependency Review
-    if: ${{ !inputs.skip_execution }}
+    # Only run in pull request context (dependency-review requires PR context)
+    if: ${{ !inputs.skip_execution && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
