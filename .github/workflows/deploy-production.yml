@@ -33,17 +33,21 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
-          aws-region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
 
       - name: Simulate Deployment to Production
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
         run: |
           echo "🚀 Simulating deployment to PRODUCTION environment"
           echo "Service: ${{ inputs.service_name }}"
           echo "Image: ${{ secrets.ECR_REPOSITORY_URL }}:${{ inputs.image_tag }}"
           echo "Environment: prd"
-          echo "Region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}"
+          echo "Region: ${{ env.AWS_REGION }}"
           echo ""
           echo "⚠️  This deployment requires manual approval (PCI compliance)"
           echo ""
