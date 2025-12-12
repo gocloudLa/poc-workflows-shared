@@ -59,10 +59,17 @@ jobs:
         with:
           aws-region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
 
-      # - name: 'Build Inventory Image (debug)'
-      #   run: |
-      #     docker build . -f Dockerfile -t 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
-      #     docker push 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
+      - name: Get ECR login token and login to Docker
+        id: ecr-docker-login
+        run: |
+          # Extract registry URL from ECR repository URL
+          ECR_REGISTRY=$(echo "${{ secrets.ECR_REPOSITORY_URL }}" | cut -d'/' -f1)
+          echo "ECR Registry: $ECR_REGISTRY"
+          # Get ECR login token
+          ECR_TOKEN=$(aws ecr get-login-password --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }})
+          # Login to Docker registry
+          echo "$ECR_TOKEN" | docker login --username AWS --password-stdin $ECR_REGISTRY
+          echo "Successfully logged in to ECR"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -88,6 +95,10 @@ jobs:
             echo "tags=${ECR_REPO}:${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
+      # - name: 'Build and push Docker image (debug)'
+      #   run: |
+      #     docker build . -f Dockerfile -t 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
+      #     docker push 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
 
       - name: Build and push Docker image
         id: build
