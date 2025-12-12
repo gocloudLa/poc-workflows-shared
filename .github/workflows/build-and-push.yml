@@ -43,9 +43,26 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_SHARED }}
           aws-region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
 
+      - name: Debug AWS configuration
+        run: |
+          echo "AWS Region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}"
+          echo "ECR Repository URL: ${{ secrets.ECR_REPOSITORY_URL }}"
+          echo "AWS Role ARN: ${{ secrets.AWS_ROLE_ARN_SHARED }}"
+          echo "Current AWS Identity:"
+          aws sts get-caller-identity || true
+          echo "Testing ECR access:"
+          aws ecr describe-repositories --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }} || true
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+        with:
+          aws-region: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
+
+      - name: 'Build Inventory Image (debug)'
+        run: |
+          docker build . -f Dockerfile -t 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
+          docker push 690282640967.dkr.ecr.us-east-2.amazonaws.com/dmc-lab-core-python-repo:debug
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,6 +87,7 @@ jobs:
           else
             echo "tags=${ECR_REPO}:${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
+
 
       - name: Build and push Docker image
         id: build
