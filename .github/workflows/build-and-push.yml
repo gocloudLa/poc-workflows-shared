@@ -75,6 +75,7 @@ jobs:
           # Extract registry URL from ECR repository URL
           ECR_REGISTRY=$(echo "${{ secrets.ECR_REPOSITORY_URL }}" | cut -d'/' -f1)
           echo "ECR Registry: $ECR_REGISTRY"
+          echo "registry=${ECR_REGISTRY}" >> $GITHUB_OUTPUT
           # Get ECR login token
           ECR_TOKEN=$(aws ecr get-login-password --region ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }})
           if [ -z "$ECR_TOKEN" ]; then
@@ -131,8 +132,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=registry,ref=${{ secrets.ECR_REPOSITORY_URL }}:buildcache
           cache-to: type=registry,ref=${{ secrets.ECR_REPOSITORY_URL }}:buildcache,mode=max
-          # Explicitly set registry to ensure credentials are used
-          registry: ${{ secrets.ECR_REPOSITORY_URL != '' && (secrets.ECR_REPOSITORY_URL | split('/') | first) || '' }}
 
       - name: Output image information
         run: |
