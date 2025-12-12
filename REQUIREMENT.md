@@ -18,7 +18,9 @@
    - **Required Checks**:
      - ✅ Conventional Commit validation
      - ✅ Linter (PHP or Python)
-     - ✅ Security Scan (CodeQL, Dependency Review, Trivy)
+     - ✅ Security Scan:
+       - **Python**: CodeQL, Dependency Review, Trivy
+       - **PHP**: Dependency Review, Trivy
      - ✅ Unit Tests
      - ✅ Coverage Validation (minimum 80%)
    - **Merge Requirements**: Requires approval and all checks must pass
@@ -27,7 +29,9 @@
 
 Upon merge to `develop`, the following automated pipeline runs:
 
-1. **Security Scan**: CodeQL analysis, dependency review, and container scanning
+1. **Security Scan**:
+   - **Python**: CodeQL analysis, dependency review, and container scanning
+   - **PHP**: Dependency review and container scanning
 2. **Build**: Docker image is built and pushed to ECR with tags:
    - Commit SHA (e.g., `abc123def456`)
    - `develop-latest`
@@ -88,8 +92,8 @@ Upon merge to `develop`, the following automated pipeline runs:
 ## Supported Languages
 
 This workflow system currently supports:
-- **PHP** (8.2)
-- **Python** (3.11)
+- **PHP** (default: 8.2, configurable)
+- **Python** (default: 3.11, configurable)
 
 ## Coverage Requirements
 
