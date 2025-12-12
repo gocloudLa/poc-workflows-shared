@@ -1,4 +1,4 @@
-name: "Shared Main Push Events"
+name: "Shared Main Push Events (Python)"
 
 on:
   workflow_call:
@@ -33,12 +33,6 @@ on:
         type: string
         default: ''
       
-      # Language
-      language:
-        description: 'Programming language (php, python)'
-        required: true
-        type: string
-      
       # Skip flags
       skip_release:
         required: false
@@ -70,14 +64,14 @@ on:
         default: false
 
 concurrency:
-  group: shared-main-push-events-${{ github.ref }}
+  group: shared-main-push-events-python-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   release-and-changelog:
     uses: ./.github/workflows/release-and-changelog.yml
     with:
-      release_type: node
+      release_type: python
       skip_execution: ${{ inputs.skip_release }}
     secrets: inherit
 
@@ -168,7 +162,7 @@ jobs:
     steps:
       - name: Workflow Summary
         run: |
-          echo "## Main Branch Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Main Branch Deployment Summary (Python)" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Release & Changelog | ${{ needs.release-and-changelog.result }} |" >> $GITHUB_STEP_SUMMARY

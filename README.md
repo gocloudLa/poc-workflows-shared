@@ -20,8 +20,10 @@ Sistema de workflows de CI/CD centralizados y reutilizables para estandarizar pi
   # Workflows Orquestadores
   shared-pull-request-php.yml        # Validaciones en PRs para PHP
   shared-pull-request-python.yml     # Validaciones en PRs para Python
-  shared-develop-push-events.yml      # Deploy a dev
-  shared-main-push-events.yml         # Release y deploy a staging/prod
+  shared-develop-push-events-php.yml    # Deploy a dev para PHP
+  shared-develop-push-events-python.yml # Deploy a dev para Python
+  shared-main-push-events-php.yml       # Release y deploy a staging/prod para PHP
+  shared-main-push-events-python.yml    # Release y deploy a staging/prod para Python
   
   # Workflows de Jobs Individuales
   conventional-commit-check.yml       # Validación de conventional commits
@@ -173,7 +175,8 @@ permissions:
 
 jobs:
   develop-push-events:
-    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-develop-push-events.yml@main
+    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-develop-push-events-php.yml@main
+    # Para Python usar: shared-develop-push-events-python.yml
     with:
       ecr_repository_url: ${{ secrets.ECR_REPOSITORY_URL }}
       aws_role_arn_shared: ${{ secrets.AWS_ROLE_ARN_SHARED }}
@@ -199,7 +202,8 @@ permissions:
 
 jobs:
   main-push-events:
-    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-main-push-events.yml@main
+    uses: gocloudLa/poc-workflows-shared/.github/workflows/shared-main-push-events-php.yml@main
+    # Para Python usar: shared-main-push-events-python.yml
     with:
       ecr_repository_url: ${{ secrets.ECR_REPOSITORY_URL }}
       aws_role_arn_shared: ${{ secrets.AWS_ROLE_ARN_SHARED }}
