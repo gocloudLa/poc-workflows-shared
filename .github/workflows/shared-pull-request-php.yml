@@ -46,6 +46,13 @@ on:
         required: false
         type: number
         default: 80
+      
+      # Language version configuration
+      php_version:
+        description: 'PHP version to use (e.g., 8.2, 8.3)'
+        required: false
+        type: string
+        default: '8.2'
 
 concurrency:
   group: shared-pull-request-events-php-${{ github.ref }}
@@ -64,6 +71,7 @@ jobs:
     if: ${{ !inputs.skip_linter }}
     uses: ./.github/workflows/linter-php.yml
     with:
+      php_version: ${{ inputs.php_version }}
       skip_execution: ${{ inputs.skip_linter }}
     secrets: inherit
 
@@ -76,18 +84,17 @@ jobs:
 
   unit-tests:
     if: ${{ !inputs.skip_unit_tests }}
-    uses: ./.github/workflows/unit-tests.yml
+    uses: ./.github/workflows/unit-tests-php.yml
     with:
-      language: php
+      php_version: ${{ inputs.php_version }}
       skip_execution: ${{ inputs.skip_unit_tests }}
     secrets: inherit
 
   coverage-validation:
     needs: unit-tests
     if: ${{ !inputs.skip_coverage_validation }}
-    uses: ./.github/workflows/coverage-validation.yml
+    uses: ./.github/workflows/coverage-validation-php.yml
     with:
-      language: php
       threshold: ${{ inputs.coverage_threshold }}
       skip_execution: ${{ inputs.skip_coverage_validation }}
     secrets: inherit

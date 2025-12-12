@@ -1,0 +1,57 @@
+name: PHP Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      php_version:
+        description: 'PHP version to use'
+        required: false
+        type: string
+        default: '8.2'
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  php-unit-tests:
+    name: PHP Unit Tests
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php_version }}
+          coverage: xdebug
+
+      - name: Run PHP Tests
+        run: |
+          if [ -f "composer.json" ]; then
+            composer install --no-interaction --prefer-dist
+            vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+          else
+            echo "No composer.json found, skipping PHP tests"
+            exit 0
+          fi
+
+      - name: Upload Coverage Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-php
+          path: coverage.xml
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        if: always()
+        with:
+          files: |
+            coverage.xml
+          fail_ci_if_error: false
+

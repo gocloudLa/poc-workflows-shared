@@ -31,8 +31,10 @@ Sistema de workflows de CI/CD centralizados y reutilizables para estandarizar pi
   linter-python.yml
   security-scan-php.yml               # CodeQL PHP, Dependabot, Trivy
   security-scan-python.yml            # CodeQL Python, Dependabot, Trivy
-  unit-tests.yml                      # Tests unitarios multi-lenguaje
-  coverage-validation.yml             # Validación de cobertura
+  unit-tests-php.yml                  # Tests unitarios PHP
+  unit-tests-python.yml               # Tests unitarios Python
+  coverage-validation-php.yml         # Validación de cobertura PHP
+  coverage-validation-python.yml      # Validación de cobertura Python
   build-and-push.yml                  # Build Docker y push a ECR
   deploy-dev.yml
   deploy-staging.yml

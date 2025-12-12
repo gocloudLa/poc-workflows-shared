@@ -3,6 +3,11 @@ name: PHP Linter
 on:
   workflow_call:
     inputs:
+      php_version:
+        description: 'PHP version to use'
+        required: false
+        type: string
+        default: '8.2'
       skip_execution:
         required: false
         type: boolean
@@ -20,7 +25,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: ${{ inputs.php_version }}
           tools: composer, phpstan, phpcs
 
       - name: Install Dependencies

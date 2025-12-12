@@ -1,0 +1,69 @@
+name: PHP Coverage Validation
+
+on:
+  workflow_call:
+    inputs:
+      threshold:
+        description: 'Minimum coverage percentage'
+        required: false
+        type: number
+        default: 80
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  php-coverage-validation:
+    name: PHP Coverage Validation
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download Coverage Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-php
+          path: .
+
+      - name: Validate PHP Coverage
+        run: |
+          if [ ! -f "coverage.xml" ]; then
+            echo "❌ ERROR: coverage.xml not found"
+            echo "Unit tests must generate coverage.xml file"
+            exit 1
+          fi
+          
+          echo "Coverage file found, validating threshold of ${{ inputs.threshold }}%"
+          
+          # Parse PHPUnit coverage.xml (Clover format)
+          COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1)
+          if [ -z "$COVERAGE" ]; then
+            # Try alternative format: statements covered/total
+            COVERED=$(grep -oP 'statements="\d+" covered="\K[0-9]+' coverage.xml | head -1)
+            TOTAL=$(grep -oP 'statements="\K[0-9]+' coverage.xml | head -1)
+            if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+              COVERAGE=$(python3 -c "print($COVERED / $TOTAL)")
+            fi
+          fi
+          
+          if [ -z "$COVERAGE" ]; then
+            echo "⚠️ Could not parse coverage from coverage.xml"
+            echo "File contents:"
+            head -20 coverage.xml
+            exit 1
+          fi
+          
+          COVERAGE_PERCENT=$(python3 -c "print(int(float('$COVERAGE') * 100))")
+          echo "Current coverage: ${COVERAGE_PERCENT}%"
+          echo "Required threshold: ${{ inputs.threshold }}%"
+          
+          if [ "$COVERAGE_PERCENT" -lt "${{ inputs.threshold }}" ]; then
+            echo "❌ Coverage validation failed: ${COVERAGE_PERCENT}% < ${{ inputs.threshold }}%"
+            exit 1
+          fi
+          
+          echo "✅ Coverage validation passed: ${COVERAGE_PERCENT}% >= ${{ inputs.threshold }}%"
+

@@ -1,0 +1,54 @@
+name: Python Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.11'
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  python-unit-tests:
+    name: Python Unit Tests
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Run Python Tests
+        run: |
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          fi
+          pip install pytest pytest-cov
+          pytest --cov=. --cov-report=xml --cov-report=term
+
+      - name: Upload Coverage Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-python
+          path: coverage.xml
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        if: always()
+        with:
+          files: |
+            coverage.xml
+          fail_ci_if_error: false
+

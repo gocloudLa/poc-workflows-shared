@@ -46,6 +46,13 @@ on:
         required: false
         type: number
         default: 80
+      
+      # Language version configuration
+      python_version:
+        description: 'Python version to use (e.g., 3.11, 3.12)'
+        required: false
+        type: string
+        default: '3.11'
 
 concurrency:
   group: shared-pull-request-events-python-${{ github.ref }}
@@ -64,6 +71,7 @@ jobs:
     if: ${{ !inputs.skip_linter }}
     uses: ./.github/workflows/linter-python.yml
     with:
+      python_version: ${{ inputs.python_version }}
       skip_execution: ${{ inputs.skip_linter }}
     secrets: inherit
 
@@ -76,18 +84,17 @@ jobs:
 
   unit-tests:
     if: ${{ !inputs.skip_unit_tests }}
-    uses: ./.github/workflows/unit-tests.yml
+    uses: ./.github/workflows/unit-tests-python.yml
     with:
-      language: python
+      python_version: ${{ inputs.python_version }}
       skip_execution: ${{ inputs.skip_unit_tests }}
     secrets: inherit
 
   coverage-validation:
     needs: unit-tests
     if: ${{ !inputs.skip_coverage_validation }}
-    uses: ./.github/workflows/coverage-validation.yml
+    uses: ./.github/workflows/coverage-validation-python.yml
     with:
-      language: python
       threshold: ${{ inputs.coverage_threshold }}
       skip_execution: ${{ inputs.skip_coverage_validation }}
     secrets: inherit
