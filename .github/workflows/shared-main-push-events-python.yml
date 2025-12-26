@@ -54,6 +54,7 @@ jobs:
 
   build-and-push:
     needs: release-and-changelog
+    if: needs.release-and-changelog.outputs.tag_name != ''
     uses: ./.github/workflows/build-and-push.yml
     with:
       service_name: ${{ inputs.service_name }}
@@ -137,15 +138,31 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Release & Changelog | ${{ needs.release-and-changelog.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy to Staging | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Staging Validation | ${{ needs.staging-validation.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo ""
-          echo "📦 **Next Step**: Create a GitHub Release to deploy to Production" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.release-and-changelog.outputs.tag_name }}" != "" ]; then
+            echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Deploy to Staging | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Staging Validation | ${{ needs.staging-validation.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "📦 **Next Step**: Create a GitHub Release to deploy to Production" >> $GITHUB_STEP_SUMMARY
+            echo "Tag created: ${{ needs.release-and-changelog.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Build & Push | skipped (no new tag) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Deploy to Staging | skipped (no new tag) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Staging Validation | skipped (no new tag) |" >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "ℹ️ **No new tag created** - This is normal if:" >> $GITHUB_STEP_SUMMARY
+            echo "   - There are no changes since the last release" >> $GITHUB_STEP_SUMMARY
+            echo "   - Commits don't follow Conventional Commits format" >> $GITHUB_STEP_SUMMARY
+            echo "   - Version already exists" >> $GITHUB_STEP_SUMMARY
+          fi
           
           if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
             echo "❌ Deployment failed or was cancelled"
             exit 1
+          elif [ "${{ needs.release-and-changelog.outputs.tag_name }}" = "" ]; then
+            echo "ℹ️ Workflow completed - no new release needed"
+            exit 0
           else
             echo "✅ Deployment completed successfully"
           fi
