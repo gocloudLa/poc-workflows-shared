@@ -30,11 +30,11 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create GitHub Release
+      - name: Create Tag and Changelog
         uses: go-semantic-release/action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-release: false
+          ghr: false
       # - name: Checkout
       #   uses: actions/checkout@v6
       #   with:
