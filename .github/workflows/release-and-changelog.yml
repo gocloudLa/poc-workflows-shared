@@ -93,7 +93,6 @@ jobs:
             # Check if this is a new tag (different from previous)
             if [ -n "$PREVIOUS_TAG" ] && [ "$LATEST_TAG" = "$PREVIOUS_TAG" ]; then
               echo "⚠️ Latest tag ($LATEST_TAG) is the same as previous tag"
-              echo "ℹ️ Semantic-release did not create a new release (no changes detected)"
               echo "version=" >> $GITHUB_OUTPUT
               echo "tag_name=" >> $GITHUB_OUTPUT
               exit 1
@@ -110,7 +109,6 @@ jobs:
             fi
           else
             echo "⚠️ No tags found - semantic-release may not have created a new release"
-            echo "ℹ️ This is normal if there are no changes since the last release"
             echo "version=" >> $GITHUB_OUTPUT
             echo "tag_name=" >> $GITHUB_OUTPUT
             exit 1
