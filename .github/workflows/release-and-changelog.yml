@@ -34,12 +34,12 @@ jobs:
         uses: go-semantic-release/action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
+          github-release: false
+      # - name: Checkout
+      #   uses: actions/checkout@v6
+      #   with:
+      #     fetch-depth: 0
+      #     token: ${{ secrets.GITHUB_TOKEN }}
       # - name: Setup Node.js
       #   uses: actions/setup-node@v4
       #   with:
