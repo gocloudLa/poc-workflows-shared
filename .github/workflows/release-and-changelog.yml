@@ -52,8 +52,7 @@ jobs:
             @semantic-release/changelog \
             @semantic-release/git \
             @semantic-release/commit-analyzer \
-            @semantic-release/release-notes-generator \
-            @semantic-release/github
+            @semantic-release/release-notes-generator
 
       - name: Create semantic-release config
         run: |
@@ -74,14 +73,6 @@ jobs:
                 {
                   "assets": ["CHANGELOG.md"],
                   "message": "chore(release): \${nextRelease.version} [skip ci]\n\n\${nextRelease.notes}"
-                }
-              ],
-              [
-                "@semantic-release/github",
-                {
-                  "successComment": false,
-                  "releasedLabels": false,
-                  "githubRelease": false
                 }
               ]
             ]
