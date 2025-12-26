@@ -34,7 +34,7 @@ jobs:
         uses: go-semantic-release/action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          custom-arguments: "--provider git"
+          custom-arguments: "--provider git --provider-opt default_branch=main"
       # - name: Checkout
       #   uses: actions/checkout@v6
       #   with:
