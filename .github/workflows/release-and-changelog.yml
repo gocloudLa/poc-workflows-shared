@@ -15,7 +15,7 @@ on:
 
 jobs:
   release-and-changelog:
-    name: Release and Changelog
+    name: Release and Changelog (Node)
     if: ${{ !inputs.skip_execution }}
     runs-on: ubuntu-latest
     permissions:
@@ -27,7 +27,67 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Create package.json for semantic-release (if needed)
+        run: |
+          if [ ! -f "package.json" ]; then
+            cat > package.json <<EOF_PKG
+          {
+            "name": "${{ github.repository }}",
+            "version": "0.0.0",
+            "private": true
+          }
+          EOF_PKG
+          fi
+
+      - name: Install semantic-release and plugins
+        run: |
+          npm install --save-dev \
+            semantic-release \
+            @semantic-release/changelog \
+            @semantic-release/git \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/github
+
+      - name: Create semantic-release config
+        run: |
+          cat > .releaserc.json <<EOF
+          {
+            "branches": ["main"],
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator",
+              [
+                "@semantic-release/changelog",
+                {
+                  "changelogFile": "CHANGELOG.md"
+                }
+              ],
+              [
+                "@semantic-release/git",
+                {
+                  "assets": ["CHANGELOG.md"],
+                  "message": "chore(release): \${nextRelease.version} [skip ci]\n\n\${nextRelease.notes}"
+                }
+              ],
+              [
+                "@semantic-release/github",
+                {
+                  "successComment": false,
+                  "releasedLabels": false,
+                  "githubRelease": false
+                }
+              ]
+            ]
+          }
+          EOF
+
       - name: Get previous tag
         id: previous-tag
         run: |
@@ -35,49 +95,11 @@ jobs:
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           echo "tag_name=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Create semrel config
-        run: |
-          cat > .semrelrc <<EOF
-          {
-            "plugins": {
-              "provider": {
-                "name": "git",
-                "options": {
-                  "default_branch": "main",
-                  "remote_name": "origin",
-                  "auth": "basic",
-                  "auth_username": "git"
-                }
-              },
-              "ci-condition": {
-                "name": "github"
-              },
-              "commit-analyzer": {
-                "name": "default"
-              },
-              "changelog-generator": {
-                "name": "default"
-              },
-              "files-updater": {
-                "names": []
-              },
-              "hooks": {
-                "names": []
-              }
-            }
-          }
-          EOF
-
-      - name: Run go-semantic-release (tag and changelog only, no GitHub release)
+      - name: Run semantic-release
         id: semantic-release
-        uses: go-semantic-release/action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          changelog-file: CHANGELOG.md
-          prepend: true
-          custom-arguments: >-
-            --config .semrelrc
-            --provider-opt auth_password=${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
 
       - name: Get created tag from semantic-release
         id: get-tag
@@ -114,36 +136,6 @@ jobs:
             exit 1
           fi
 
-      - name: Commit changelog
-        if: ${{ steps.get-tag.outputs.tag_name != '' }}
-        run: |
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "ℹ️ CHANGELOG.md unchanged, skipping commit"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          VERSION="${{ steps.get-tag.outputs.version }}"
-          TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
-          git add CHANGELOG.md
-          git commit -m "chore(release): ${TAG_NAME} [skip ci]" -m "Release ${VERSION}"
-          git push origin HEAD:main
-
-      # - name: Create PR to develop with changelog
-      #   if: ${{ steps.get-tag.outputs.tag_name != '' }}
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
-      #     BRANCH="chore/changelog-${TAG_NAME}"
-      #     git checkout -b "${BRANCH}"
-      #     git push origin "${BRANCH}"
-      #     gh pr create \
-      #       --base develop \
-      #       --head "${BRANCH}" \
-      #       --title "chore(release): sync changelog ${TAG_NAME}" \
-      #       --body "Sync CHANGELOG.md for ${TAG_NAME}"
-
       - name: Output release status
         run: |
           TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
@@ -166,3 +158,18 @@ jobs:
             echo "   - Commits don't follow Conventional Commits format"
             echo "   - Version already exists"
           fi
+
+      # - name: Create PR to develop with changelog
+      #   if: ${{ steps.get-tag.outputs.tag_name != '' }}
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
+      #     BRANCH="chore/changelog-${TAG_NAME}"
+      #     git checkout -b "${BRANCH}"
+      #     git push origin "${BRANCH}"
+      #     gh pr create \
+      #       --base develop \
+      #       --head "${BRANCH}" \
+      #       --title "chore(release): sync changelog ${TAG_NAME}" \
+      #       --body "Sync CHANGELOG.md for ${TAG_NAME}"
