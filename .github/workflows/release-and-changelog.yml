@@ -34,7 +34,7 @@ jobs:
         uses: go-semantic-release/action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          ghr: false
+          custom-arguments: "--provider git"
       # - name: Checkout
       #   uses: actions/checkout@v6
       #   with:
