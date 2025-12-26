@@ -25,179 +25,147 @@ jobs:
       version: ${{ steps.get-tag.outputs.version }}
       tag_name: ${{ steps.get-tag.outputs.tag_name }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: go-semantic-release/action@v1
+          
+      - name: Get previous tag
+        id: previous-tag
+        run: |
+          git fetch --tags
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "tag_name=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Create semrel config
+        run: |
+          cat > .semrelrc <<EOF
+          {
+            "plugins": {
+              "provider": {
+                "name": "git",
+                "options": {
+                  "default_branch": "main",
+                  "remote_name": "origin",
+                  "auth": "basic",
+                  "auth_username": "git"
+                }
+              },
+              "ci-condition": {
+                "name": "github"
+              },
+              "commit-analyzer": {
+                "name": "default"
+              },
+              "changelog-generator": {
+                "name": "default"
+              },
+              "files-updater": {
+                "names": []
+              },
+              "hooks": {
+                "names": []
+              }
+            }
+          }
+          EOF
+
+      - name: Run go-semantic-release (tag and changelog only, no GitHub release)
+        id: semantic-release
+        uses: go-semantic-release/action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-file: CHANGELOG.md
+          prepend: true
           custom-arguments: >-
-            --provider git
-            --provider-opt default_branch=main
-            --provider-opt remote_name=origin
-            --provider-opt auth=basic
-            --provider-opt auth_username=git
+            --config .semrelrc
             --provider-opt auth_password=${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Checkout
-      #   uses: actions/checkout@v6
-      #   with:
-      #     fetch-depth: 0
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: '20'
+      - name: Get created tag from semantic-release
+        id: get-tag
+        run: |
+          # Fetch latest tags to get the one semantic-release just created
+          git fetch --tags
+          
+          # Get the latest tag (should be the one just created by semantic-release)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          PREVIOUS_TAG="${{ steps.previous-tag.outputs.tag_name }}"
+          
+          if [ -n "$LATEST_TAG" ]; then
+            # Check if this is a new tag (different from previous)
+            if [ -n "$PREVIOUS_TAG" ] && [ "$LATEST_TAG" = "$PREVIOUS_TAG" ]; then
+              echo "⚠️ Latest tag ($LATEST_TAG) is the same as previous tag"
+              echo "ℹ️ Semantic-release did not create a new release (no changes detected)"
+              echo "version=" >> $GITHUB_OUTPUT
+              echo "tag_name=" >> $GITHUB_OUTPUT
+            else
+              # Extract version from tag (remove 'v' prefix if present)
+              VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+              echo "version=${VERSION}" >> $GITHUB_OUTPUT
+              echo "tag_name=${LATEST_TAG}" >> $GITHUB_OUTPUT
+              echo "✅ Found NEW tag created by semantic-release: ${LATEST_TAG}"
+              echo "✅ Version: ${VERSION}"
+              if [ -n "$PREVIOUS_TAG" ]; then
+                echo "📌 Previous tag was: ${PREVIOUS_TAG}"
+              fi
+            fi
+          else
+            echo "⚠️ No tags found - semantic-release may not have created a new release"
+            echo "ℹ️ This is normal if there are no changes since the last release"
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "tag_name=" >> $GITHUB_OUTPUT
+          fi
 
-      # - name: Create package.json for semantic-release (if needed)
-      #   run: |
-      #     # Create a minimal package.json for semantic-release to work
-      #     # This is needed even if the repo doesn't use Node.js
-      #     # Only create if it doesn't exist
-      #     if [ ! -f "package.json" ]; then
-      #       cat > package.json <<EOF
-      #     {
-      #       "name": "${{ github.repository }}",
-      #       "version": "0.0.0",
-      #       "private": true
-      #     }
-      #     EOF
-      #       echo "✅ Created minimal package.json for semantic-release"
-      #     else
-      #       echo "ℹ️ package.json already exists, using existing file"
-      #     fi
+      - name: Commit changelog
+        if: ${{ steps.get-tag.outputs.tag_name != '' }}
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "ℹ️ CHANGELOG.md unchanged, skipping commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          VERSION="${{ steps.get-tag.outputs.version }}"
+          TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
+          git add CHANGELOG.md
+          git commit -m "chore(release): ${TAG_NAME} [skip ci]" -m "Release ${VERSION}"
+          git push origin HEAD:main
 
-      # - name: Install semantic-release and plugins
-      #   run: |
-      #     npm install --save-dev \
-      #       semantic-release \
-      #       @semantic-release/changelog \
-      #       @semantic-release/git \
-      #       @semantic-release/commit-analyzer \
-      #       @semantic-release/release-notes-generator
-
-      # - name: Create semantic-release config
-      #   run: |
-      #     cat > .releaserc.json <<EOF
-      #     {
-      #       "branches": ["main"],
-      #       "plugins": [
-      #         "@semantic-release/commit-analyzer",
-      #         "@semantic-release/release-notes-generator",
-      #         [
-      #           "@semantic-release/changelog",
-      #           {
-      #             "changelogFile": "CHANGELOG.md"
-      #           }
-      #         ],
-      #         [
-      #           "@semantic-release/git",
-      #           {
-      #             "assets": ["CHANGELOG.md"],
-      #             "message": "chore(release): \${nextRelease.version} [skip ci]\n\n\${nextRelease.notes}"
-      #           }
-      #         ],
-      #         [
-      #           "@semantic-release/github",
-      #           {
-      #             "successComment": false,
-      #             "releasedLabels": false,
-      #             "githubRelease": false
-      #           }
-      #         ]
-      #       ]
-      #     }
-      #     EOF
-      #     echo "📋 Semantic-release configuration:"
-      #     cat .releaserc.json
-
-      # - name: Run semantic-release (tag and changelog only, no GitHub release)
-      #   id: semantic-release
+      # - name: Create PR to develop with changelog
+      #   if: ${{ steps.get-tag.outputs.tag_name != '' }}
       #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     # Get the latest tag before running semantic-release
-      #     git fetch --tags
-      #     PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
-      #     if [ -n "$PREVIOUS_TAG" ]; then
-      #       echo "📌 Previous tag: $PREVIOUS_TAG"
-      #       echo "previous_tag=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
-      #     else
-      #       echo "📌 No previous tags found (first release)"
-      #       echo "previous_tag=" >> $GITHUB_OUTPUT
-      #     fi
-          
-      #     # Run semantic-release (creates tag and changelog, but no GitHub release)
-      #     echo "🚀 Running semantic-release to create tag and changelog..."
-      #     npx semantic-release --no-ci || {
-      #       EXIT_CODE=$?
-      #       if [ $EXIT_CODE -eq 0 ]; then
-      #         echo "✅ Semantic-release completed successfully"
-      #       else
-      #         echo "⚠️ Semantic-release exited with code $EXIT_CODE"
-      #         # Check if it's because there are no changes (exit code 1 is normal for no release)
-      #         if [ $EXIT_CODE -eq 1 ]; then
-      #           echo "ℹ️ No new release needed (no changes detected or version already exists)"
-      #         fi
-      #       fi
-      #     }
-
-      # - name: Get created tag from semantic-release
-      #   id: get-tag
-      #   run: |
-      #     # Fetch latest tags to get the one semantic-release just created
-      #     git fetch --tags
-          
-      #     # Get the latest tag (should be the one just created by semantic-release)
-      #     LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-      #     PREVIOUS_TAG="${{ steps.semantic-release.outputs.previous_tag }}"
-          
-      #     if [ -n "$LATEST_TAG" ]; then
-      #       # Check if this is a new tag (different from previous)
-      #       if [ -n "$PREVIOUS_TAG" ] && [ "$LATEST_TAG" = "$PREVIOUS_TAG" ]; then
-      #         echo "⚠️ Latest tag ($LATEST_TAG) is the same as previous tag"
-      #         echo "ℹ️ Semantic-release did not create a new release (no changes detected)"
-      #         echo "version=" >> $GITHUB_OUTPUT
-      #         echo "tag_name=" >> $GITHUB_OUTPUT
-      #       else
-      #         # Extract version from tag (remove 'v' prefix if present)
-      #         VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
-      #         echo "version=${VERSION}" >> $GITHUB_OUTPUT
-      #         echo "tag_name=${LATEST_TAG}" >> $GITHUB_OUTPUT
-      #         echo "✅ Found NEW tag created by semantic-release: ${LATEST_TAG}"
-      #         echo "✅ Version: ${VERSION}"
-      #         if [ -n "$PREVIOUS_TAG" ]; then
-      #           echo "📌 Previous tag was: ${PREVIOUS_TAG}"
-      #         fi
-      #       fi
-      #     else
-      #       echo "⚠️ No tags found - semantic-release may not have created a new release"
-      #       echo "ℹ️ This is normal if there are no changes since the last release"
-      #       echo "version=" >> $GITHUB_OUTPUT
-      #       echo "tag_name=" >> $GITHUB_OUTPUT
-      #     fi
-
-      # - name: Output release status
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   run: |
       #     TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
-      #     VERSION="${{ steps.get-tag.outputs.version }}"
+      #     BRANCH="chore/changelog-${TAG_NAME}"
+      #     git checkout -b "${BRANCH}"
+      #     git push origin "${BRANCH}"
+      #     gh pr create \
+      #       --base develop \
+      #       --head "${BRANCH}" \
+      #       --title "chore(release): sync changelog ${TAG_NAME}" \
+      #       --body "Sync CHANGELOG.md for ${TAG_NAME}"
+
+      - name: Output release status
+        run: |
+          TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
+          VERSION="${{ steps.get-tag.outputs.version }}"
           
-      #     if [ -n "$TAG_NAME" ] && [ -n "$VERSION" ]; then
-      #       echo "✅ Tag created: $TAG_NAME"
-      #       echo "✅ Version: $VERSION"
-      #       echo "✅ Changelog updated in CHANGELOG.md"
-      #       echo "ℹ️ No GitHub Release created (will be created manually later)"
-      #       echo ""
-      #       echo "📦 Next steps:"
-      #       echo "1. Review the tag: $TAG_NAME"
-      #       echo "2. Review the changelog in CHANGELOG.md"
-      #       echo "3. Manually create a GitHub Release using the 'Create Release' workflow"
-      #     else
-      #       echo "ℹ️ No new tag created"
-      #       echo "ℹ️ This is normal if:"
-      #       echo "   - There are no changes since the last release"
-      #       echo "   - Commits don't follow Conventional Commits format"
-      #       echo "   - Version already exists"
-      #     fi
+          if [ -n "$TAG_NAME" ] && [ -n "$VERSION" ]; then
+            echo "✅ Tag created: $TAG_NAME"
+            echo "✅ Version: $VERSION"
+            echo "✅ Changelog updated in CHANGELOG.md"
+            echo "ℹ️ No GitHub Release created (will be created manually later)"
+            echo ""
+            echo "📦 Next steps:"
+            echo "1. Review the tag: $TAG_NAME"
+            echo "2. Review the changelog in CHANGELOG.md"
+            echo "3. Manually create a GitHub Release using the 'Create Release' workflow"
+          else
+            echo "ℹ️ No new tag created"
+            echo "ℹ️ This is normal if:"
+            echo "   - There are no changes since the last release"
+            echo "   - Commits don't follow Conventional Commits format"
+            echo "   - Version already exists"
+          fi
