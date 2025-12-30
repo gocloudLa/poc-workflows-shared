@@ -22,8 +22,14 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ACTION_BOT_APP_ID }}
+          private-key: ${{ secrets.ACTION_BOT_PRIVATE_KEY }}
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -89,7 +95,7 @@ jobs:
       - name: Run semantic-release
         id: semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: npx semantic-release
 
       - name: Get created tag from semantic-release
