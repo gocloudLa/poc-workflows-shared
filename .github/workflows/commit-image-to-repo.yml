@@ -1,0 +1,133 @@
+name: Commit Image Tag to Values Repo
+
+on:
+  workflow_call:
+    inputs:
+      target_repository:
+        description: 'Repository to update (owner/repo)'
+        required: true
+        type: string
+      target_branch:
+        description: 'Target branch to update'
+        required: false
+        type: string
+        default: 'main'
+      values_dir:
+        description: 'Folder that contains values files (relative to repo root)'
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: 'Environment used to pick values.<env>.yaml (dev, stg, prd)'
+        required: true
+        type: string
+      values_file:
+        description: 'Optional override for values file name (e.g. values.dev.yaml)'
+        required: false
+        type: string
+        default: ''
+      image_tag:
+        description: 'Image tag to write into the values file'
+        required: true
+        type: string
+      image_repository:
+        description: 'Optional image repository to write into the values file'
+        required: false
+        type: string
+        default: ''
+      image_tag_key:
+        description: 'YQ path for the image tag key (e.g. image.tag)'
+        required: false
+        type: string
+        default: 'image.tag'
+      image_repository_key:
+        description: 'YQ path for the image repository key (e.g. image.repository)'
+        required: false
+        type: string
+        default: 'image.repository'
+      commit_message:
+        description: 'Commit message override'
+        required: false
+        type: string
+        default: ''
+      git_user_name:
+        description: 'Git author name'
+        required: false
+        type: string
+        default: 'github-actions[bot]'
+      git_user_email:
+        description: 'Git author email'
+        required: false
+        type: string
+        default: '41898282+github-actions[bot]@users.noreply.github.com'
+      skip_execution:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      repo_token:
+        description: 'Token with write access to target_repository'
+        required: true
+
+jobs:
+  commit-image:
+    name: Commit image tag
+    if: ${{ !inputs.skip_execution }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.repo_token }}
+          fetch-depth: 0
+
+      - name: Resolve values file path
+        id: values
+        run: |
+          if [ -n "${{ inputs.values_file }}" ]; then
+            FILE="${{ inputs.values_file }}"
+          else
+            FILE="values.${{ inputs.environment }}.yaml"
+          fi
+          if [ -n "${{ inputs.values_dir }}" ]; then
+            FILE="${{ inputs.values_dir }}/$FILE"
+          fi
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Install yq
+        uses: mikefarah/yq@v4.44.1
+
+      - name: Update values file
+        run: |
+          set -euo pipefail
+          FILE="${{ steps.values.outputs.file }}"
+          if [ ! -f "$FILE" ]; then
+            echo "Values file not found: $FILE" >&2
+            exit 1
+          fi
+          yq eval -i ".${{ inputs.image_tag_key }} = \"${{ inputs.image_tag }}\"" "$FILE"
+          if [ -n "${{ inputs.image_repository }}" ]; then
+            yq eval -i ".${{ inputs.image_repository_key }} = \"${{ inputs.image_repository }}\"" "$FILE"
+          fi
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          FILE="${{ steps.values.outputs.file }}"
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "${{ inputs.git_user_name }}"
+          git config user.email "${{ inputs.git_user_email }}"
+          git add "$FILE"
+          MESSAGE="${{ inputs.commit_message }}"
+          if [ -z "$MESSAGE" ]; then
+            MESSAGE="chore: update image tag for ${{ inputs.environment }}"
+          fi
+          git commit -m "$MESSAGE"
+          git push origin "${{ inputs.target_branch }}"
