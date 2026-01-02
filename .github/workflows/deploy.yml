@@ -44,10 +44,6 @@ on:
         required: false
         type: boolean
         default: false
-    secrets:
-      repo_token:
-        description: 'Token with write access to target_repository'
-        required: true
 
 jobs:
   commit-image:
