@@ -132,30 +132,7 @@ jobs:
             echo "tag_name=" >> $GITHUB_OUTPUT
             exit 1
           fi
-
-      - name: Output release status
-        run: |
-          TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
-          VERSION="${{ steps.get-tag.outputs.version }}"
-          
-          if [ -n "$TAG_NAME" ] && [ -n "$VERSION" ]; then
-            echo "✅ Tag created: $TAG_NAME"
-            echo "✅ Version: $VERSION"
-            echo "✅ Changelog updated in CHANGELOG.md"
-            echo "ℹ️ No GitHub Release created (will be created manually later)"
-            echo ""
-            echo "📦 Next steps:"
-            echo "1. Review the tag: $TAG_NAME"
-            echo "2. Review the changelog in CHANGELOG.md"
-            echo "3. Manually create a GitHub Release using the 'Create Release' workflow"
-          else
-            echo "ℹ️ No new tag created"
-            echo "ℹ️ This is normal if:"
-            echo "   - There are no changes since the last release"
-            echo "   - Commits don't follow Conventional Commits format"
-            echo "   - Version already exists"
-          fi
-
+      
       - name: Create PR to develop with changelog
         if: ${{ steps.get-tag.outputs.tag_name != '' }}
         env:
@@ -170,3 +147,29 @@ jobs:
             --head "${BRANCH}" \
             --title "chore(release): sync changelog ${TAG_NAME}" \
             --body "Sync CHANGELOG.md for ${TAG_NAME}"
+
+      - name: Output release status
+        run: |
+          TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
+          VERSION="${{ steps.get-tag.outputs.version }}"
+          
+          if [ -n "$TAG_NAME" ] && [ -n "$VERSION" ]; then
+            echo "✅ Tag created: $TAG_NAME"
+            echo "✅ Version: $VERSION"
+            echo "✅ Changelog updated in CHANGELOG.md"
+            echo "✅ Se creo el PR a develop para actualizar esa rama con el changelog resultante"
+            echo "ℹ️ No GitHub Release created (will be created manually later)"
+            echo ""
+            echo "📦 Next steps:"
+            echo "1. Review the tag: $TAG_NAME"
+            echo "2. Review the changelog in CHANGELOG.md"
+            echo "3. Manually create a GitHub Release using the 'Create Release' workflow"
+          else
+            echo "ℹ️ No new tag created"
+            echo "ℹ️ This is normal if:"
+            echo "   - There are no changes since the last release"
+            echo "   - Commits don't follow Conventional Commits format"
+            echo "   - Version already exists"
+          fi
+
+      
