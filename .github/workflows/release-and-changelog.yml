@@ -156,17 +156,17 @@ jobs:
             echo "   - Version already exists"
           fi
 
-      # - name: Create PR to develop with changelog
-      #   if: ${{ steps.get-tag.outputs.tag_name != '' }}
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
-      #     BRANCH="chore/changelog-${TAG_NAME}"
-      #     git checkout -b "${BRANCH}"
-      #     git push origin "${BRANCH}"
-      #     gh pr create \
-      #       --base develop \
-      #       --head "${BRANCH}" \
-      #       --title "chore(release): sync changelog ${TAG_NAME}" \
-      #       --body "Sync CHANGELOG.md for ${TAG_NAME}"
+      - name: Create PR to develop with changelog
+        if: ${{ steps.get-tag.outputs.tag_name != '' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
+          BRANCH="chore/changelog-${TAG_NAME}"
+          git checkout -b "${BRANCH}"
+          git push origin "${BRANCH}"
+          gh pr create \
+            --base develop \
+            --head "${BRANCH}" \
+            --title "chore(release): sync changelog ${TAG_NAME}" \
+            --body "Sync CHANGELOG.md for ${TAG_NAME}"
