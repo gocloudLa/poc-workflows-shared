@@ -1,10 +1,7 @@
 # TODO
 
-## go-semantic-release (actualmente solo se uso apra probar esa herramienta)
-- Bug: no genera el changelog.
-
 ## node-semantic-release
-- Funciona, pero es necesario restringir permisos y permitir el commit del changelog de forma controlada.
+- Funciona, pero es necesario restringir permisos y permitir el commit del changelog de forma controlada. [RESUELTO] Se utiliza una github app y ruleset con bypass para hacer commits en branch protegidas solo por la gt app.
 
 ## create-release
 - Funciona correctamente, pero falta ajustar la logica para que agregue el changelog.

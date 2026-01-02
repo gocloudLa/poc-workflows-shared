@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       release_notes:
-        description: 'Release notes (optional)'
+        description: 'Release notes (optional). If empty, uses CHANGELOG.md from the tag.'
         required: false
         type: string
         default: ''
@@ -40,6 +40,25 @@ jobs:
           fi
           echo "✅ Tag ${{ inputs.tag_name }} exists"
 
+      - name: Extract changelog from tag
+        id: changelog
+        run: |
+          set -euo pipefail
+          CHANGELOG_PATH="$RUNNER_TEMP/changelog-${{ inputs.tag_name }}.md"
+          
+          if git cat-file -e "${{ inputs.tag_name }}:CHANGELOG.md" 2>/dev/null; then
+            git show "${{ inputs.tag_name }}:CHANGELOG.md" > "$CHANGELOG_PATH"
+            echo "✅ Loaded CHANGELOG.md from tag"
+          elif git cat-file -e "${{ inputs.tag_name }}:changelog.md" 2>/dev/null; then
+            git show "${{ inputs.tag_name }}:changelog.md" > "$CHANGELOG_PATH"
+            echo "✅ Loaded changelog.md from tag"
+          else
+            : > "$CHANGELOG_PATH"
+            echo "⚠️ No changelog found in tag"
+          fi
+          
+          echo "path=$CHANGELOG_PATH" >> "$GITHUB_OUTPUT"
+
       - name: Check if release already exists
         id: check-release
         run: |
@@ -61,7 +80,11 @@ jobs:
         run: |
           RELEASE_NOTES="${{ inputs.release_notes }}"
           if [ -z "$RELEASE_NOTES" ]; then
-            RELEASE_NOTES="Automated release created after successful staging validation."
+            if [ -s "${{ steps.changelog.outputs.path }}" ]; then
+              RELEASE_NOTES="$(cat "${{ steps.changelog.outputs.path }}")"
+            else
+              RELEASE_NOTES="Automated release created after successful staging validation."
+            fi
           fi
           
           RELEASE_BODY=$(cat <<EOF
@@ -97,4 +120,3 @@ jobs:
           else
             echo "ℹ️ Release already exists, skipping creation"
           fi
-
