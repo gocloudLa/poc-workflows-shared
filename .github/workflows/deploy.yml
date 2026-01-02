@@ -124,7 +124,7 @@ jobs:
           git add "$FILE"
           MESSAGE="${{ inputs.commit_message }}"
           if [ -z "$MESSAGE" ]; then
-            MESSAGE="chore: update image tag for ${{ inputs.environment }}"
+            MESSAGE="chore: update image tag for ${{ inputs.environment }} to ${{ inputs.image_tag }}"
           fi
           git commit -m "$MESSAGE"
           git push origin "${{ inputs.target_branch }}"
