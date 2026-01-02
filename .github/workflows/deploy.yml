@@ -1,4 +1,4 @@
-name: Commit Image Tag to Values Repo
+name: Deploy
 
 on:
   workflow_call:
@@ -18,7 +18,7 @@ on:
         type: string
         default: ''
       environment:
-        description: 'Environment used to pick values.<env>.yaml (dev, stg, prd)'
+        description: 'Environment used to pick values.<env>.yaml (dev, staging, prd)'
         required: true
         type: string
       values_file:
@@ -30,36 +30,16 @@ on:
         description: 'Image tag to write into the values file'
         required: true
         type: string
-      image_repository:
-        description: 'Optional image repository to write into the values file'
-        required: false
-        type: string
-        default: ''
       image_tag_key:
         description: 'YQ path for the image tag key (e.g. image.tag)'
         required: false
         type: string
         default: 'image.tag'
-      image_repository_key:
-        description: 'YQ path for the image repository key (e.g. image.repository)'
-        required: false
-        type: string
-        default: 'image.repository'
       commit_message:
         description: 'Commit message override'
         required: false
         type: string
         default: ''
-      git_user_name:
-        description: 'Git author name'
-        required: false
-        type: string
-        default: 'github-actions[bot]'
-      git_user_email:
-        description: 'Git author email'
-        required: false
-        type: string
-        default: '41898282+github-actions[bot]@users.noreply.github.com'
       skip_execution:
         required: false
         type: boolean
@@ -76,6 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    environment:
+      name: ${{ inputs.environment }}
     steps:
       - name: Checkout target repository
         uses: actions/checkout@v6
@@ -110,9 +92,6 @@ jobs:
             exit 1
           fi
           yq eval -i ".${{ inputs.image_tag_key }} = \"${{ inputs.image_tag }}\"" "$FILE"
-          if [ -n "${{ inputs.image_repository }}" ]; then
-            yq eval -i ".${{ inputs.image_repository_key }} = \"${{ inputs.image_repository }}\"" "$FILE"
-          fi
 
       - name: Commit and push
         run: |
@@ -122,8 +101,6 @@ jobs:
             echo "No changes to commit."
             exit 0
           fi
-          git config user.name "${{ inputs.git_user_name }}"
-          git config user.email "${{ inputs.git_user_email }}"
           git add "$FILE"
           MESSAGE="${{ inputs.commit_message }}"
           if [ -z "$MESSAGE" ]; then

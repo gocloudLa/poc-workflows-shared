@@ -9,6 +9,21 @@ on:
         required: false
         type: string
         default: ''
+      target_repository:
+        description: 'ArgoCD repository to update (owner/repo)'
+        required: false
+        type: string
+        default: 'gocloudLa/poc-workflows-argocd-shared'
+      target_branch:
+        description: 'Target branch to update in ArgoCD repo'
+        required: false
+        type: string
+        default: 'main'
+      values_dir:
+        description: 'Values folder inside ArgoCD repo'
+        required: false
+        type: string
+        default: 'poc-workflows-php-repo'
       
       # Skip flags
       skip_security_scan:
@@ -55,9 +70,13 @@ jobs:
 
   deploy-dev:
     needs: build-and-push
-    uses: ./.github/workflows/deploy-dev.yml
+    uses: ./.github/workflows/deploy.yml
     with:
-      service_name: ${{ inputs.service_name }}
+      target_repository: ${{ inputs.target_repository }}
+      target_branch: ${{ inputs.target_branch }}
+      values_dir: ${{ inputs.values_dir }}
+      environment: dev
+      values_file: values.dev.yml
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_deploy }}
     secrets: inherit
@@ -103,4 +122,3 @@ jobs:
           else
             echo "✅ Deployment completed successfully"
           fi
-
