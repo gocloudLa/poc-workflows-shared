@@ -9,6 +9,21 @@ on:
         required: false
         type: string
         default: ''
+      target_repository:
+        description: 'ArgoCD repository to update (owner/repo)'
+        required: false
+        type: string
+        default: 'gocloudLa/poc-workflows-argocd-shared'
+      target_branch:
+        description: 'Target branch to update in ArgoCD repo'
+        required: false
+        type: string
+        default: 'main'
+      values_dir:
+        description: 'Values folder inside ArgoCD repo'
+        required: false
+        type: string
+        default: 'poc-workflows-python-repo'
       
       # Skip flags
       skip_release:
@@ -64,9 +79,13 @@ jobs:
 
   deploy-staging:
     needs: build-and-push
-    uses: ./.github/workflows/deploy-staging.yml
+    uses: ./.github/workflows/deploy.yml
     with:
-      service_name: ${{ inputs.service_name }}
+      target_repository: ${{ inputs.target_repository }}
+      target_branch: ${{ inputs.target_branch }}
+      values_dir: ${{ inputs.values_dir }}
+      environment: staging
+      values_file: values.stg.yml
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
       skip_execution: ${{ inputs.skip_staging_deploy }}
     secrets: inherit
