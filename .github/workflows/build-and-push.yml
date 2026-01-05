@@ -16,6 +16,16 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      image_tag:
+        description: 'Image tag without registry (short SHA or version tag)'
+        value: ${{ jobs.build-and-push.outputs.image_tag }}
+      image_digest:
+        description: 'Built image digest'
+        value: ${{ jobs.build-and-push.outputs.image_digest }}
+      version_tag:
+        description: 'Version tag for main branch builds'
+        value: ${{ jobs.build-and-push.outputs.version_tag }}
 
 jobs:
   build-and-push:
@@ -97,4 +107,3 @@ jobs:
         run: |
           echo "Image tags: ${{ steps.meta.outputs.tags }}"
           echo "Image digest: ${{ steps.build.outputs.digest }}"
-
