@@ -12,6 +12,13 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      tag_name:
+        description: 'Tag created by semantic-release'
+        value: ${{ jobs.release-and-changelog.outputs.tag_name }}
+      version:
+        description: 'Version extracted from the created tag'
+        value: ${{ jobs.release-and-changelog.outputs.version }}
 
 jobs:
   release-and-changelog:
@@ -21,6 +28,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      tag_name: ${{ steps.get-tag.outputs.tag_name }}
+      version: ${{ steps.get-tag.outputs.version }}
     steps:
       - name: Create GitHub App token
         id: app-token
