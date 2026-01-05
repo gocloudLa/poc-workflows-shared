@@ -12,6 +12,30 @@ on:
         required: false
         type: string
         default: ''
+      target_repository:
+        description: 'ArgoCD repository to update (owner/repo)'
+        required: false
+        type: string
+        default: 'gocloudLa/poc-workflows-argocd-shared'
+      target_branch:
+        description: 'Target branch to update in ArgoCD repo'
+        required: false
+        type: string
+        default: 'main'
+      values_dir:
+        description: 'Values folder inside ArgoCD repo (poc-workflows-python-repo or poc-workflows-php-repo)'
+        required: true
+        type: string
+      image_tag_key:
+        description: 'YQ path for the image tag key (e.g. image.tag)'
+        required: false
+        type: string
+        default: 'image.tag'
+      commit_message:
+        description: 'Commit message override for ArgoCD values update'
+        required: false
+        type: string
+        default: ''
       skip_execution:
         required: false
         type: boolean
@@ -122,3 +146,19 @@ jobs:
           else
             echo "ℹ️ Release already exists, skipping creation"
           fi
+
+  deploy-production:
+    name: Deploy tag to Production (ArgoCD)
+    needs: create-release
+    if: ${{ !inputs.skip_execution }}
+    uses: ./.github/workflows/deploy.yml
+    with:
+      target_repository: ${{ inputs.target_repository }}
+      target_branch: ${{ inputs.target_branch }}
+      values_dir: ${{ inputs.values_dir }}
+      environment: prd
+      values_file: values.prd.yml
+      image_tag: ${{ inputs.tag_name }}
+      image_tag_key: ${{ inputs.image_tag_key }}
+      commit_message: ${{ inputs.commit_message }}
+    secrets: inherit
