@@ -147,7 +147,6 @@ jobs:
       target_repository: ${{ inputs.target_repository }}
       target_branch: ${{ inputs.target_branch }}
       values_dir: ${{ inputs.values_dir }}
-      #values_dir: ${{ vars.VALUES_DIR }}
       environment: prd
       values_file: values.prd.yml
       image_tag: ${{ inputs.tag_name }}
