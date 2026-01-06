@@ -10,51 +10,166 @@ on:
         default: ''
       environment:
         description: 'Environment name (staging, prd)'
-        required: true
+        required: false
         type: string
+        default: 'prd'
       image_tag:
         description: 'Current Docker image tag to rollback from'
         required: true
         type: string
+      rollback_tag:
+        description: 'Release tag to deploy in production (rollback target)'
+        required: false
+        type: string
+        default: ''
+      release_tag_to_delete:
+        description: 'Release tag to delete (bad release)'
+        required: false
+        type: string
+        default: ''
+      target_repository:
+        description: 'ArgoCD repository to update (owner/repo)'
+        required: false
+        type: string
+        default: 'gocloudLa/poc-workflows-argocd-shared'
+      target_branch:
+        description: 'Target branch to update in ArgoCD repo'
+        required: false
+        type: string
+        default: 'main'
+      values_dir:
+        description: 'Folder that contains values files (relative to repo root)'
+        required: false
+        type: string
+        default: ''
+      image_tag_key:
+        description: 'YQ path for the image tag key (e.g. image.tag)'
+        required: false
+        type: string
+        default: 'image.tag'
+      commit_message:
+        description: 'Commit message override for ArgoCD values update'
+        required: false
+        type: string
+        default: ''
       skip_execution:
         required: false
         type: boolean
         default: false
-
 jobs:
   rollback:
     name: Rollback Mechanism (${{ inputs.environment }})
     if: ${{ !inputs.skip_execution }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      rollback_tag: ${{ steps.resolve.outputs.rollback_tag }}
     steps:
-      - name: Document Previous Version
+      - name: Resolve rollback parameters
+        id: resolve
         run: |
-          echo "📝 Documenting previous version for rollback"
+          set -euo pipefail
+          ROLLBACK_TAG="${{ inputs.rollback_tag }}"
+          RELEASE_TAG_TO_DELETE="${{ inputs.release_tag_to_delete }}"
+          VALUES_DIR="${{ inputs.values_dir }}"
+          if [ -n "$ROLLBACK_TAG" ] && [ -z "$VALUES_DIR" ]; then
+            echo "values_dir is required when rollback_tag is provided." >&2
+            exit 1
+          fi
+          echo "rollback_tag=$ROLLBACK_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_tag_to_delete=$RELEASE_TAG_TO_DELETE" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag to delete
+        if: steps.resolve.outputs.release_tag_to_delete != ''
+        id: release-to-delete
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.release_tag_to_delete }}"
+          API="https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG}"
+          HTTP_CODE=$(curl -s -o "$RUNNER_TEMP/release-to-delete.json" -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$API")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Release tag $TAG not found in ${{ github.repository }}" >&2
+            exit 1
+          fi
+          RELEASE_ID=$(jq -r .id "$RUNNER_TEMP/release-to-delete.json")
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "❌ Release ID not found for tag $TAG" >&2
+            exit 1
+          fi
+          echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+          echo "✅ Release found for tag $TAG (id: $RELEASE_ID)"
+
+      - name: Validate rollback tag exists
+        if: steps.resolve.outputs.rollback_tag != ''
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.rollback_tag }}"
+          API="https://api.github.com/repos/${{ github.repository }}/git/ref/tags/${TAG}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$API")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Tag $TAG does not exist in ${{ github.repository }}" >&2
+            exit 1
+          fi
+          echo "✅ Tag $TAG exists"
+
+      - name: Validate rollback tag has release
+        if: steps.resolve.outputs.rollback_tag != ''
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.rollback_tag }}"
+          API="https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG}"
+          HTTP_CODE=$(curl -s -o "$RUNNER_TEMP/rollback-release.json" -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$API")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Tag $TAG does not have a GitHub Release" >&2
+            exit 1
+          fi
+          echo "✅ Release found for rollback tag $TAG"
+
+      - name: Delete release
+        if: steps.resolve.outputs.release_tag_to_delete != ''
+        run: |
+          set -euo pipefail
+          RELEASE_ID="${{ steps.release-to-delete.outputs.release_id }}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X DELETE \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}")
+          if [ "$HTTP_CODE" != "204" ]; then
+            echo "❌ Failed to delete release id ${RELEASE_ID}" >&2
+            exit 1
+          fi
+          echo "✅ Release deleted (id: ${RELEASE_ID})"
+
+      - name: Rollback summary
+        run: |
+          echo "Rollback summary"
           echo "Service: ${{ inputs.service_name }}"
           echo "Environment: ${{ inputs.environment }}"
-          echo "Current version: ${{ inputs.image_tag }}"
-          echo ""
-          echo "In a real scenario, this would:"
-          echo "1. Query deployment history to find previous stable version"
-          echo "2. Document the version for rollback"
-          echo "3. Store in a state file or database"
+          echo "Current tag: ${{ inputs.image_tag }}"
+          echo "Rollback tag: ${{ steps.resolve.outputs.rollback_tag }}"
+          echo "Release tag to delete: ${{ steps.resolve.outputs.release_tag_to_delete }}"
 
-      - name: Simulate Rollback
-        run: |
-          echo "🔄 Simulating rollback for ${{ inputs.service_name }} in ${{ inputs.environment }}"
-          echo ""
-          echo "In a real scenario, this would:"
-          echo "1. ArgoCD: argocd app rollback <app-name> <revision>"
-          echo "2. Argo Rollouts: kubectl argo rollouts undo <rollout-name>"
-          echo "3. ECS: Revert to previous task definition revision"
-          echo "4. Lambda: Update to previous version/alias"
-          echo ""
-          echo "⚠️  Rollback mechanism is simulated. Real rollback would be handled by GitOps/Infrastructure tools"
-
-      - name: Log Rollback to Datadog
-        run: |
-          echo "📊 Logging rollback event to Datadog (simulated)"
-          echo "Event: Service ${{ inputs.service_name }} rolled back in ${{ inputs.environment }}"
-          echo "From version: ${{ inputs.image_tag }}"
-          echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
+  deploy-production:
+    name: Deploy rollback tag to Production (ArgoCD)
+    needs: rollback
+    if: ${{ !inputs.skip_execution && needs.rollback.outputs.rollback_tag != '' }}
+    uses: ./.github/workflows/deploy.yml
+    with:
+      target_repository: ${{ inputs.target_repository }}
+      target_branch: ${{ inputs.target_branch }}
+      values_dir: ${{ inputs.values_dir }}
+      environment: ${{ inputs.environment }}
+      values_file: values.${{ inputs.environment }}.yml
+      image_tag: ${{ needs.rollback.outputs.rollback_tag }}
+    secrets: inherit
