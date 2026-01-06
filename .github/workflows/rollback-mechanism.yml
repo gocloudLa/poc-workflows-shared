@@ -59,8 +59,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    environment:
+      name: release
     outputs:
       rollback_tag: ${{ steps.resolve.outputs.rollback_tag }}
+      target_repository: ${{ steps.resolve.outputs.target_repository }}
+      target_branch: ${{ steps.resolve.outputs.target_branch }}
+      values_dir: ${{ steps.resolve.outputs.values_dir }}
     steps:
       - name: Resolve rollback parameters
         id: resolve
@@ -69,12 +74,23 @@ jobs:
           ROLLBACK_TAG="${{ inputs.rollback_tag }}"
           RELEASE_TAG_TO_DELETE="${{ inputs.release_tag_to_delete }}"
           VALUES_DIR="${{ inputs.values_dir }}"
+          TARGET_REPOSITORY="${{ inputs.target_repository }}"
+          TARGET_BRANCH="${{ inputs.target_branch }}"
           if [ -n "$ROLLBACK_TAG" ] && [ -z "$VALUES_DIR" ]; then
             echo "values_dir is required when rollback_tag is provided." >&2
             exit 1
           fi
+          if [ -z "$TARGET_REPOSITORY" ]; then
+            TARGET_REPOSITORY="gocloudLa/poc-workflows-argocd-shared"
+          fi
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="main"
+          fi
           echo "rollback_tag=$ROLLBACK_TAG" >> "$GITHUB_OUTPUT"
           echo "release_tag_to_delete=$RELEASE_TAG_TO_DELETE" >> "$GITHUB_OUTPUT"
+          echo "target_repository=$TARGET_REPOSITORY" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "values_dir=$VALUES_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Validate release tag to delete
         if: steps.resolve.outputs.release_tag_to_delete != ''
@@ -161,9 +177,9 @@ jobs:
     if: ${{ !inputs.skip_execution && needs.rollback.outputs.rollback_tag != '' }}
     uses: ./.github/workflows/deploy.yml
     with:
-      target_repository: ${{ inputs.target_repository }}
-      target_branch: ${{ inputs.target_branch }}
-      values_dir: ${{ inputs.values_dir }}
+      target_repository: ${{ needs.rollback.outputs.target_repository }}
+      target_branch: ${{ needs.rollback.outputs.target_branch }}
+      values_dir: ${{ needs.rollback.outputs.values_dir }}
       environment: ${{ inputs.environment }}
       values_file: values.${{ inputs.environment }}.yml
       image_tag: ${{ needs.rollback.outputs.rollback_tag }}
