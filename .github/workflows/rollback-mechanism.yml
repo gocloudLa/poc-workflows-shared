@@ -66,6 +66,7 @@ jobs:
       target_repository: ${{ steps.resolve.outputs.target_repository }}
       target_branch: ${{ steps.resolve.outputs.target_branch }}
       values_dir: ${{ steps.resolve.outputs.values_dir }}
+      environment: ${{ steps.resolve.outputs.environment }}
     steps:
       - name: Resolve rollback parameters
         id: resolve
@@ -76,6 +77,7 @@ jobs:
           VALUES_DIR="${{ inputs.values_dir }}"
           TARGET_REPOSITORY="${{ inputs.target_repository }}"
           TARGET_BRANCH="${{ inputs.target_branch }}"
+          ENVIRONMENT="${{ inputs.environment }}"
           if [ -n "$ROLLBACK_TAG" ] && [ -z "$VALUES_DIR" ]; then
             echo "values_dir is required when rollback_tag is provided." >&2
             exit 1
@@ -86,11 +88,15 @@ jobs:
           if [ -z "$TARGET_BRANCH" ]; then
             TARGET_BRANCH="main"
           fi
+          if [ -z "$ENVIRONMENT" ]; then
+            ENVIRONMENT="prd"
+          fi
           echo "rollback_tag=$ROLLBACK_TAG" >> "$GITHUB_OUTPUT"
           echo "release_tag_to_delete=$RELEASE_TAG_TO_DELETE" >> "$GITHUB_OUTPUT"
           echo "target_repository=$TARGET_REPOSITORY" >> "$GITHUB_OUTPUT"
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
           echo "values_dir=$VALUES_DIR" >> "$GITHUB_OUTPUT"
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
 
       - name: Validate release tag to delete
         if: steps.resolve.outputs.release_tag_to_delete != ''
@@ -180,7 +186,7 @@ jobs:
       target_repository: ${{ needs.rollback.outputs.target_repository }}
       target_branch: ${{ needs.rollback.outputs.target_branch }}
       values_dir: ${{ needs.rollback.outputs.values_dir }}
-      environment: ${{ inputs.environment }}
-      values_file: values.${{ inputs.environment }}.yml
+      environment: ${{ needs.rollback.outputs.environment }}
+      values_file: values.${{ needs.rollback.outputs.environment }}.yml
       image_tag: ${{ needs.rollback.outputs.rollback_tag }}
     secrets: inherit
