@@ -22,20 +22,6 @@ on:
         required: false
         type: string
         default: 'main'
-      values_dir:
-        description: 'Values folder inside ArgoCD repo (poc-workflows-python-repo or poc-workflows-php-repo)'
-        required: true
-        type: string
-      image_tag_key:
-        description: 'YQ path for the image tag key (e.g. image.tag)'
-        required: false
-        type: string
-        default: 'image.tag'
-      commit_message:
-        description: 'Commit message override for ArgoCD values update'
-        required: false
-        type: string
-        default: ''
       skip_execution:
         required: false
         type: boolean
@@ -155,7 +141,7 @@ jobs:
     with:
       target_repository: ${{ inputs.target_repository }}
       target_branch: ${{ inputs.target_branch }}
-      values_dir: ${{ inputs.values_dir }}
+      values_dir: ${{ vars.VALUES_DIR }}
       environment: prd
       values_file: values.prd.yml
       image_tag: ${{ inputs.tag_name }}
