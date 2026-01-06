@@ -13,10 +13,6 @@ on:
         required: false
         type: string
         default: 'prd'
-      image_tag:
-        description: 'Current Docker image tag to rollback from'
-        required: true
-        type: string
       rollback_tag:
         description: 'Release tag to deploy in production (rollback target)'
         required: false
@@ -156,7 +152,6 @@ jobs:
           echo "Rollback summary"
           echo "Service: ${{ inputs.service_name }}"
           echo "Environment: ${{ inputs.environment }}"
-          echo "Current tag: ${{ inputs.image_tag }}"
           echo "Rollback tag: ${{ steps.resolve.outputs.rollback_tag }}"
           echo "Release tag to delete: ${{ steps.resolve.outputs.release_tag_to_delete }}"
 
