@@ -145,6 +145,4 @@ jobs:
       environment: prd
       values_file: values.prd.yml
       image_tag: ${{ inputs.tag_name }}
-      image_tag_key: ${{ inputs.image_tag_key }}
-      commit_message: ${{ inputs.commit_message }}
     secrets: inherit
