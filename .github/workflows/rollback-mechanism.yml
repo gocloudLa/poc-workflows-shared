@@ -3,11 +3,6 @@ name: Rollback Mechanism
 on:
   workflow_call:
     inputs:
-      service_name:
-        description: 'Service name'
-        required: false
-        type: string
-        default: ''
       environment:
         description: 'Environment name (staging, prd)'
         required: false
@@ -177,7 +172,6 @@ jobs:
       - name: Rollback summary
         run: |
           echo "Rollback summary"
-          echo "Service: ${{ inputs.service_name }}"
           echo "Environment: ${{ inputs.environment }}"
           echo "Current tag: ${{ inputs.image_tag }}"
           echo "Rollback tag: ${{ steps.resolve.outputs.rollback_tag }}"
