@@ -48,14 +48,9 @@ on:
         required: false
         type: string
         default: ''
-      skip_execution:
-        required: false
-        type: boolean
-        default: false
 jobs:
   rollback:
     name: Rollback Mechanism (${{ inputs.environment }})
-    if: ${{ !inputs.skip_execution }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -79,7 +74,7 @@ jobs:
           TARGET_BRANCH="${{ inputs.target_branch }}"
           ENVIRONMENT="${{ inputs.environment }}"
           if [ -n "$ROLLBACK_TAG" ] && [ -z "$VALUES_DIR" ]; then
-            echo "values_dir is required when rollback_tag is provided." >&2
+            echo "::error::values_dir is required when rollback_tag is provided." >&2
             exit 1
           fi
           if [ -z "$TARGET_REPOSITORY" ]; then
@@ -110,12 +105,12 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             "$API")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Release tag $TAG not found in ${{ github.repository }}" >&2
+            echo "::error::Release tag $TAG not found in ${{ github.repository }}" >&2
             exit 1
           fi
           RELEASE_ID=$(jq -r .id "$RUNNER_TEMP/release-to-delete.json")
           if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-            echo "❌ Release ID not found for tag $TAG" >&2
+            echo "::error::Release ID not found for tag $TAG" >&2
             exit 1
           fi
           echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
@@ -132,7 +127,7 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             "$API")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Tag $TAG does not exist in ${{ github.repository }}" >&2
+            echo "::error::Tag $TAG does not exist in ${{ github.repository }}" >&2
             exit 1
           fi
           echo "✅ Tag $TAG exists"
@@ -148,7 +143,7 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             "$API")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Tag $TAG does not have a GitHub Release" >&2
+            echo "::error::Tag $TAG does not have a GitHub Release" >&2
             exit 1
           fi
           echo "✅ Release found for rollback tag $TAG"
@@ -180,7 +175,7 @@ jobs:
   deploy-production:
     name: Deploy rollback tag to Production (ArgoCD)
     needs: rollback
-    if: ${{ !inputs.skip_execution && needs.rollback.outputs.rollback_tag != '' }}
+    if: ${{ needs.rollback.outputs.rollback_tag != '' }}
     uses: ./.github/workflows/deploy.yml
     with:
       target_repository: ${{ needs.rollback.outputs.target_repository }}
