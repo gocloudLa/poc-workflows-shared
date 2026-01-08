@@ -3,6 +3,11 @@ name: Rollback Mechanism
 on:
   workflow_call:
     inputs:
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
       environment:
         description: 'Environment name (staging, prd)'
         required: false
