@@ -4,6 +4,11 @@ on:
   workflow_call:
     inputs:
       # Service configuration
+      service_name:
+        description: 'Service name'
+        required: false
+        type: string
+        default: ''
       target_repository:
         description: 'ArgoCD repository to update (owner/repo)'
         required: false
@@ -110,6 +115,16 @@ jobs:
     with:
       service_name: ${{ inputs.service_name }}
       skip_execution: ${{ inputs.skip_staging_validation }}
+    secrets: inherit
+
+  rollback-mechanism-staging:
+    if: failure() && needs.staging-validation.result == 'failure'
+    needs: [build-and-push, staging-validation]
+    uses: ./.github/workflows/rollback-mechanism.yml
+    with:
+      service_name: ${{ inputs.service_name }}
+      environment: staging
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
     secrets: inherit
 
   save-production-version:
