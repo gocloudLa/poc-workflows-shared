@@ -60,6 +60,7 @@ concurrency:
 
 jobs:
   conventional-commit-check:
+    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/conventional-commit-check.yml
     with:
       types: ${{ inputs.conventional_commit_types }}
