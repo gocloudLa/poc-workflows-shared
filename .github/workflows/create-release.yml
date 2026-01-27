@@ -47,10 +47,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate tag format
+        run: |
+          TAG="${{ inputs.tag_name }}"
+          TAG_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
+          if ! echo "$TAG" | grep -Eq "$TAG_REGEX"; then
+            echo "::error::Tag '$TAG' invalido. Formato esperado: vX.Y.Z"
+            exit 1
+          fi
+          echo "Tag format OK: $TAG"
+
       - name: Verify tag exists
         run: |
-          if ! git rev-parse "${{ inputs.tag_name }}" >/dev/null 2>&1; then
-            echo "❌ Tag ${{ inputs.tag_name }} does not exist"
+          if ! git show-ref --tags --quiet --verify "refs/tags/${{ inputs.tag_name }}"; then
+            echo "::error::Tag ${{ inputs.tag_name }} does not exist"
             echo "Available tags:"
             git tag -l | tail -10
             exit 1

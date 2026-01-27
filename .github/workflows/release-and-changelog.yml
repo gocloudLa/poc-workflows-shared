@@ -143,19 +143,31 @@ jobs:
             exit 1
           fi
       
-      - name: Create PR to develop with changelog
+      - name: Check diff main -> develop
         if: ${{ steps.get-tag.outputs.tag_name != '' }}
+        id: diff
+        run: |
+          git fetch origin main develop
+          if git diff --quiet origin/develop..origin/main; then
+            echo "has_diff=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_diff=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR main -> develop
+        if: ${{ steps.get-tag.outputs.tag_name != '' && steps.diff.outputs.has_diff == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           TAG_NAME="${{ steps.get-tag.outputs.tag_name }}"
-          BRANCH="chore/changelog-${TAG_NAME}"
-          git checkout -b "${BRANCH}"
-          git push origin "${BRANCH}"
+          if gh pr list --base develop --head main --state open --json number --jq 'length>0'; then
+            echo "PR main->develop already exists, skipping."
+            exit 0
+          fi
           gh pr create \
             --base develop \
-            --head "${BRANCH}" \
-            --title "chore(release): sync changelog ${TAG_NAME}" \
+            --head main \
+            --title "chore(release): sync main -> develop ${TAG_NAME}" \
             --body "Sync CHANGELOG.md for ${TAG_NAME}"
 
       - name: Output release status

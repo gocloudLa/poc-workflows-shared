@@ -13,3 +13,12 @@
 ## aprobaciones
 - Agregar aprobadores para pr de develop a main.
 - Agregar aprobadores para action manual de creacion de release.
+
+## Workflow custom
+- probar el caso en el que los devs necesiten agregar sus workflows propios en su repó y se complementen con los existentes.
+
+## Reglas
+- contemplar bypass para el caso de hotfix
+
+## Environments
+- cambiar staging por stg para linear a la nomenclatura del values.stg.yaml y podes usar al misma variable para ambos

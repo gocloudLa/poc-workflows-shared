@@ -67,6 +67,7 @@ jobs:
       target_branch: ${{ steps.resolve.outputs.target_branch }}
       values_dir: ${{ steps.resolve.outputs.values_dir }}
       environment: ${{ steps.resolve.outputs.environment }}
+      commit_message: ${{ steps.resolve.outputs.commit_message }}
     steps:
       - name: Resolve rollback parameters
         id: resolve
@@ -78,6 +79,8 @@ jobs:
           TARGET_REPOSITORY="${{ inputs.target_repository }}"
           TARGET_BRANCH="${{ inputs.target_branch }}"
           ENVIRONMENT="${{ inputs.environment }}"
+          CURRENT_TAG="${{ inputs.image_tag }}"
+          COMMIT_MESSAGE="${{ inputs.commit_message }}"
           if [ -n "$ROLLBACK_TAG" ] && [ -z "$VALUES_DIR" ]; then
             echo "::error::values_dir is required when rollback_tag is provided." >&2
             exit 1
@@ -97,6 +100,10 @@ jobs:
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
           echo "values_dir=$VALUES_DIR" >> "$GITHUB_OUTPUT"
           echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          if [ -z "$COMMIT_MESSAGE" ]; then
+            COMMIT_MESSAGE="chore(rollback): ${ROLLBACK_TAG} (from ${CURRENT_TAG})"
+          fi
+          echo "commit_message=$COMMIT_MESSAGE" >> "$GITHUB_OUTPUT"
 
       - name: Validate release tag to delete
         if: steps.resolve.outputs.release_tag_to_delete != ''
@@ -189,4 +196,5 @@ jobs:
       environment: ${{ needs.rollback.outputs.environment }}
       values_file: values.${{ needs.rollback.outputs.environment }}.yml
       image_tag: ${{ needs.rollback.outputs.rollback_tag }}
+      commit_message: ${{ needs.rollback.outputs.commit_message }}
     secrets: inherit
