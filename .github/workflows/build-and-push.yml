@@ -12,6 +12,11 @@ on:
         description: 'Branch name (develop or main)'
         required: true
         type: string
+      version_tag:
+        description: 'Version tag created by release job (e.g., v1.2.3)'
+        required: false
+        type: string
+        default: ''
       skip_execution:
         required: false
         type: boolean
@@ -80,7 +85,11 @@ jobs:
             # Get the latest tag (should be the one just created by release-please)
             # Fetch all tags first
             git fetch --tags
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            if [ -n "${{ inputs.version_tag }}" ]; then
+              VERSION="${{ inputs.version_tag }}"
+            else
+              VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            fi
             echo "Using version tag: $VERSION"
             # Output version tag separately for easier access
             echo "version_tag=${VERSION}" >> $GITHUB_OUTPUT

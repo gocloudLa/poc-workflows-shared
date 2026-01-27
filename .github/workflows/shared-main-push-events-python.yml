@@ -69,11 +69,11 @@ jobs:
 
   build-and-push:
     needs: release-and-changelog
-    if: needs.release-and-changelog.outputs.tag_name != ''
     uses: ./.github/workflows/build-and-push.yml
     with:
       service_name: ${{ inputs.service_name }}
       branch: main
+      version_tag: ${{ needs.release-and-changelog.outputs.tag_name }}
       skip_execution: ${{ inputs.skip_build }}
     secrets: inherit
 
