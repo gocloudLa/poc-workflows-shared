@@ -99,7 +99,7 @@ jobs:
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
 
       - name: Install yq
-        uses: mikefarah/yq@v4.44.1
+        uses: mikefarah/yq@v4.52.4
 
       - name: Update values file
         run: |
